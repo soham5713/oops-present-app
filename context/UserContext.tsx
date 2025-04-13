@@ -54,7 +54,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile = {
           setupCompleted: false,
         }
-        await setDoc(doc(db, "users", userId), profile)
+        try {
+          await setDoc(doc(db, "users", userId), profile)
+        } catch (error) {
+          console.error("Error creating default user profile:", error)
+        }
       }
 
       setUserProfile(profile)
@@ -73,15 +77,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (email && password) {
         console.log("Found stored credentials, attempting auto-login")
-        await signInWithEmailAndPassword(auth, email, password)
-        // The onAuthStateChanged listener will handle setting the user and profile
+        try {
+          await signInWithEmailAndPassword(auth, email, password)
+          // The onAuthStateChanged listener will handle setting the user and profile
+        } catch (loginError) {
+          console.error("Auto-login failed with stored credentials:", loginError)
+          // Clear potentially invalid credentials
+          await AsyncStorage.removeItem(EMAIL_KEY)
+          await AsyncStorage.removeItem(PASSWORD_KEY)
+          setIsLoading(false)
+        }
       } else {
         // No stored credentials, finish loading
         setIsLoading(false)
       }
     } catch (error) {
-      console.error("Auto-login failed:", error)
-      // Clear potentially invalid credentials
+      console.error("Error checking stored credentials:", error)
+      // Clear potentially corrupted storage
       await AsyncStorage.removeItem(EMAIL_KEY)
       await AsyncStorage.removeItem(PASSWORD_KEY)
       setIsLoading(false)

@@ -386,9 +386,11 @@ export default function AttendanceScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Attendance</Text>
+        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
         <Text style={[styles.headerSubtitle, { color: theme.headerText + "CC" }]}>
-          {userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : ""}
+          {userProfile?.division
+            ? `Division ${userProfile.division} - Batch ${userProfile.batch}`
+            : "Attendance Tracker"}
         </Text>
       </View>
 

@@ -466,10 +466,8 @@ export default function ManualAttendanceScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Manual Attendance</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.headerText + "CC" }]}>
-          Add or manage manual attendance records
-        </Text>
+        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
+        <Text style={[styles.headerSubtitle, { color: theme.headerText + "CC" }]}>Manual Attendance Records</Text>
       </View>
 
       {/* Success Toast */}

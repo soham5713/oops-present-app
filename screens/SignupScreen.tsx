@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
@@ -99,8 +100,8 @@ export default function SignupScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.logoContainer}>
-          <Ionicons name="school" size={80} color={theme.primary} />
-          <Text style={[styles.appName, { color: theme.text }]}>Student Attendance</Text>
+          <Image source={require("../assets/attendance.png")} style={{ width: 100, height: 100 }} />
+          <Text style={[styles.appName, { color: theme.text }]}>Oops Present</Text>
         </View>
 
         <View style={[styles.formContainer, { backgroundColor: theme.card }]}>
@@ -224,13 +225,13 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   appName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    marginTop: 10,
+    marginTop: 16,
   },
   formContainer: {
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -240,11 +241,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: "center",
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
@@ -255,39 +256,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 16,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
     flex: 1,
-    height: 48,
+    height: 52,
     fontSize: 16,
   },
   button: {
-    height: 50,
-    borderRadius: 8,
+    height: 56,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "600",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 20,
+    marginTop: 24,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 16,
   },
   footerLink: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     marginLeft: 5,
   },

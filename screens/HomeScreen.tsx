@@ -677,7 +677,6 @@ export default function HomeScreen() {
 
           {/* Table Rows */}
           {stats.map((stat, index) => {
-
             return (
               <View
                 key={stat.subject}
@@ -698,10 +697,7 @@ export default function HomeScreen() {
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryPresent}</Text>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryTotal}</Text>
                     <View
-                      style={[
-                        styles.percentageBadge,
-                        { backgroundColor: getPercentageColor(stat.theoryPercentage) }
-                      ]}
+                      style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.theoryPercentage) }]}
                     >
                       <Text style={styles.percentageText}>{stat.theoryPercentage}%</Text>
                     </View>
@@ -712,12 +708,7 @@ export default function HomeScreen() {
                   <View style={styles.attendanceDetails}>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labPresent}</Text>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labTotal}</Text>
-                    <View
-                      style={[
-                        styles.percentageBadge,
-                        { backgroundColor: getPercentageColor(stat.labPercentage) }
-                      ]}
-                    >
+                    <View style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.labPercentage) }]}>
                       <Text style={styles.percentageText}>{stat.labPercentage}%</Text>
                     </View>
                   </View>
@@ -752,7 +743,7 @@ export default function HomeScreen() {
         >
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.title}>Attendance Dashboard</Text>
+              <Text style={styles.title}>Oops Present</Text>
               <Text style={styles.date}>{format(new Date(), "EEEE, MMMM d, yyyy")}</Text>
             </View>
 
@@ -1343,8 +1334,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     fontSize: 14,
     fontWeight: "500",
-    textAlignVertical: 'center', // Add this for Android
-    alignSelf: 'center', // This helps for cross-platform alignment
+    textAlignVertical: "center", // Add this for Android
+    alignSelf: "center", // This helps for cross-platform alignment
   },
   theoryLabCell: {
     flex: 1.5,

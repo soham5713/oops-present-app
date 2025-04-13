@@ -1,31 +1,29 @@
 {
   "expo": {
-    "name": "Attendance Tracker",
-    "slug": "attendance-tracker",
+    "name": "Oops Present",
+    "slug": "oops-present",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/attendance.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/attendance.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4f46e5"
+      "backgroundColor": "#fff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/attendance.png",
         "backgroundColor": "#4f46e5"
       },
       "package": "com.soham5713.oopspresent"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/attendance.png"
     },
     "extra": {
       "eas": {

@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   SafeAreaView,
+  Image,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
@@ -91,9 +92,9 @@ export default function SetupScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: theme.primary + "20" }]}>
-            <Ionicons name="school" size={60} color={theme.primary} />
+            <Image source={require("../assets/attendance.png")} style={{ width: 100, height: 100 }} />
           </View>
-          <Text style={[styles.title, { color: theme.text }]}>Student Attendance Setup</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Oops Present</Text>
           <Text style={[styles.subtitle, { color: theme.secondaryText }]}>
             Let's set up your account to track attendance
           </Text>
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
     marginTop: 16,
     textAlign: "center",
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
   },
   customDropdown: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 24,
     height: 54,
     flexDirection: "row",
@@ -397,7 +398,7 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
   completeButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -465,8 +466,8 @@ const styles = StyleSheet.create({
     width: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
   },
   inputLabel: {
     fontSize: 16,

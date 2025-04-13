@@ -10,8 +10,8 @@ import { Ionicons } from "@expo/vector-icons"
 import { AttendanceProvider } from "./context/AttendanceContext"
 import { ThemeProvider, useTheme } from "./context/ThemeContext"
 import { UserProvider, useUser } from "./context/UserContext"
-import { ToastProvider } from "./context/ToastContext" // Import the ToastProvider
-import { View, ActivityIndicator, LogBox, Text } from "react-native"
+import { ToastProvider } from "./context/ToastContext"
+import { View, ActivityIndicator, LogBox, Text, Image } from "react-native"
 import { useEffect, useState } from "react"
 
 // Screens
@@ -22,7 +22,7 @@ import SignupScreen from "./screens/SignupScreen"
 import SetupScreen from "./screens/SetupScreen"
 import TimetableScreen from "./screens/TimetableScreen"
 import AttendanceScreen from "./screens/AttendanceScreen"
-import ManualAttendanceScreen from "./screens/ManualAttendanceScreen" // Import the new screen
+import ManualAttendanceScreen from "./screens/ManualAttendanceScreen"
 
 // Ignore specific warnings
 LogBox.ignoreLogs([
@@ -87,8 +87,9 @@ function MainTabs() {
           backgroundColor: theme.headerBackground,
         },
         headerTintColor: theme.headerText,
+        headerTitle: "Oops Present",
       })}
-      initialRouteName="Attendance"
+      initialRouteName="Home"
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Attendance" component={AttendanceScreen} options={{ headerShown: false }} />
@@ -107,6 +108,7 @@ function AppNavigator() {
   const { user, userProfile, isLoading } = useUser()
   const { isDarkMode } = useTheme()
   const [appReady, setAppReady] = useState(false)
+  const theme = isDarkMode ? colors.dark : colors.light
 
   // Add a slight delay to ensure everything is loaded properly
   useEffect(() => {
@@ -124,11 +126,13 @@ function AppNavigator() {
           flex: 1,
           justifyContent: "center",
           alignItems: "center",
-          backgroundColor: isDarkMode ? "#111827" : "#f9fafb",
+          backgroundColor: theme.background,
         }}
       >
-        <ActivityIndicator size="large" color={isDarkMode ? "#6366f1" : "#4f46e5"} />
-        <Text style={{ marginTop: 16, color: isDarkMode ? "#e5e7eb" : "#4b5563" }}>Loading your profile...</Text>
+        <Image source={require("./assets/attendance.png")} style={{ width: 100, height: 100, marginBottom: 20 }} />
+        <Text style={{ marginTop: 16, color: theme.text, fontSize: 24, fontWeight: "bold" }}>Oops Present</Text>
+        <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
+        <Text style={{ marginTop: 16, color: theme.text, fontSize: 16 }}>Loading your profile...</Text>
       </View>
     )
   }

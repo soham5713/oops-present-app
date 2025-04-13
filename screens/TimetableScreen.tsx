@@ -57,7 +57,7 @@ export default function TimetableScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Timetable</Text>
+        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
       </View>
       <View style={[styles.daySelector, { backgroundColor: theme.card }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
