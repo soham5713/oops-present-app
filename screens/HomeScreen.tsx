@@ -774,6 +774,49 @@ export default function HomeScreen() {
               </Animated.View>
             </TouchableOpacity>
           </View>
+
+          {/* Overall Attendance Progress */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressLabelContainer}>
+              <Text style={styles.progressLabel}>Theory Attendance</Text>
+              <Text style={styles.progressValue}>{overallTheoryAttendance}%</Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: "rgba(255,255,255,0.3)" }]}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ["0%", "100%"],
+                    }),
+                    backgroundColor:
+                      overallTheoryAttendance >= 75 ? "#10b981" : overallTheoryAttendance >= 60 ? "#f59e0b" : "#ef4444",
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Lab Attendance Progress */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressLabelContainer}>
+              <Text style={styles.progressLabel}>Lab Attendance</Text>
+              <Text style={styles.progressValue}>{overallLabAttendance}%</Text>
+            </View>
+            <View style={[styles.progressTrack, { backgroundColor: "rgba(255,255,255,0.3)" }]}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${overallLabAttendance}%`,
+                    backgroundColor:
+                      overallLabAttendance >= 75 ? "#10b981" : overallLabAttendance >= 60 ? "#f59e0b" : "#ef4444",
+                  },
+                ]}
+              />
+            </View>
+          </View>
         </LinearGradient>
       </Animated.View>
 
@@ -783,6 +826,63 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshData} colors={[theme.primary]} />}
       >
+        {/* Stats Cards */}
+        <Animated.View
+          style={[
+            styles.statsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
+            style={[styles.statCard, styles.statCardElevated]}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: "#4f46e5" }]}>
+              <Ionicons name="people" size={24} color="white" />
+            </View>
+            <View style={styles.statInfo}>
+              <Text style={[styles.statValue, { color: theme.text }]}>{attendees.length}</Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Attendees</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
+            style={[styles.statCard, styles.statCardElevated]}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: "#0ea5e9" }]}>
+              <Ionicons name="book" size={24} color="white" />
+            </View>
+            <View style={styles.statInfo}>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {activeTab === "overall"
+                  ? overallStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)
+                  : monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Theory Classes</Text>
+            </View>
+          </LinearGradient>
+
+          <LinearGradient
+            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
+            style={[styles.statCard, styles.statCardElevated]}
+          >
+            <View style={[styles.statIconContainer, { backgroundColor: "#f97316" }]}>
+              <Ionicons name="flask" size={24} color="white" />
+            </View>
+            <View style={styles.statInfo}>
+              <Text style={[styles.statValue, { color: theme.text }]}>
+                {activeTab === "overall"
+                  ? overallStats.reduce((sum, stat) => sum + stat.labTotal, 0)
+                  : monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0)}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Lab Sessions</Text>
+            </View>
+          </LinearGradient>
+        </Animated.View>
 
         {/* Tab Selector */}
         <Animated.View
