@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#4f46e5"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
@@ -19,10 +21,16 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4f46e5"
-      }
+      },
+      "package": "com.soham5713.oopspresent"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "620493e7-2170-40f9-941c-7e39de8976be"
+      }
     }
   }
 }

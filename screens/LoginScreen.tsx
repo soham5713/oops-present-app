@@ -10,18 +10,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
+import { useToast } from "../context/ToastContext"
 import { colors } from "../utils/theme"
+import { getAuth, fetchSignInMethodsForEmail } from "firebase/auth"
 
 export default function LoginScreen() {
   const navigation = useNavigation()
   const { signIn } = useUser()
   const { isDarkMode } = useTheme()
+  const { showToast } = useToast()
   const theme = isDarkMode ? colors.dark : colors.light
 
   const [email, setEmail] = useState("")
@@ -31,25 +33,56 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields")
+      showToast({
+        message: "Please fill in all fields",
+        type: "warning",
+      })
       return
     }
 
     setIsLoading(true)
     try {
+      // Check if the email exists
+      const auth = getAuth()
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email)
+
+      // If no sign-in methods, the user doesn't exist
+      if (signInMethods.length === 0) {
+        showToast({
+          message: "Account not found. Please sign up first.",
+          type: "error",
+          duration: 4000,
+        })
+        setIsLoading(false)
+        return
+      }
+
       await signIn(email, password)
       // Navigation is handled by the AppNavigator based on auth state
     } catch (error) {
       console.error("Login error:", error)
       // Provide more specific error messages based on Firebase error codes
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
-        Alert.alert("Login Failed", "Invalid email or password. Please try again.")
+        showToast({
+          message: "Invalid email or password. Please try again.",
+          type: "error",
+        })
       } else if (error.code === "auth/invalid-email") {
-        Alert.alert("Login Failed", "Invalid email format. Please check your email.")
+        showToast({
+          message: "Invalid email format. Please check your email.",
+          type: "error",
+        })
       } else if (error.code === "auth/too-many-requests") {
-        Alert.alert("Login Failed", "Too many failed login attempts. Please try again later.")
+        showToast({
+          message: "Too many failed login attempts. Please try again later.",
+          type: "error",
+          duration: 5000,
+        })
       } else {
-        Alert.alert("Login Failed", "An error occurred during login. Please try again.")
+        showToast({
+          message: "An error occurred during login. Please try again.",
+          type: "error",
+        })
       }
     } finally {
       setIsLoading(false)

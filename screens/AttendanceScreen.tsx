@@ -1,17 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  SafeAreaView,
-  Animated,
-} from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Animated } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
@@ -19,6 +9,8 @@ import { colors } from "../utils/theme"
 import { getDaySubjects } from "../timetable"
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, getDay } from "date-fns"
 import { saveAttendance, getAttendanceByDate, type AttendanceRecord } from "../firebase/attendanceService"
+import { useToast } from "../context/ToastContext"
+import { SafeAreaView } from "react-native-safe-area-context"
 
 // Define the subject type based on the timetable structure
 type SubjectType = {
@@ -30,6 +22,7 @@ export default function AttendanceScreen() {
   const { user, userProfile } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
+  const { showToast } = useToast()
 
   // Success message animation
   const fadeAnim = useRef(new Animated.Value(0)).current
@@ -210,12 +203,18 @@ export default function AttendanceScreen() {
   // Save attendance records
   const saveAttendanceRecords = async () => {
     if (!user?.uid) {
-      Alert.alert("Error", "You must be logged in to save attendance")
+      showToast({
+        message: "You must be logged in to save attendance",
+        type: "error",
+      })
       return
     }
 
     if (timetable.length === 0) {
-      Alert.alert("Error", "No classes to mark attendance for")
+      showToast({
+        message: "No classes to mark attendance for",
+        type: "warning",
+      })
       return
     }
 
@@ -237,8 +236,11 @@ export default function AttendanceScreen() {
 
       await saveAttendance(user.uid, records)
 
-      // Show success message instead of alert
-      showSuccessMessage("Attendance saved successfully!")
+      // Show success message with toast instead of animation
+      showToast({
+        message: "Attendance saved successfully!",
+        type: "success",
+      })
 
       // Update marked dates
       setMarkedDates((prev) => ({
@@ -247,7 +249,10 @@ export default function AttendanceScreen() {
       }))
     } catch (error) {
       console.error("Error saving attendance:", error)
-      Alert.alert("Error", "Failed to save attendance records")
+      showToast({
+        message: "Failed to save attendance records",
+        type: "error",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -649,13 +654,13 @@ const styles = StyleSheet.create({
   dayCell: {
     width: "14.28%",
     aspectRatio: 1,
-    padding: 4,
+    padding: 2,
   },
   dayButton: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 50,
+    borderRadius: 8,
   },
   dayText: {
     fontSize: 14,

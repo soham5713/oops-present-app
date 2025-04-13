@@ -6,6 +6,7 @@ import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
 import { colors } from "../utils/theme"
 import { getDivisionTimetable } from "../timetable"
+import { SafeAreaView } from "react-native-safe-area-context"
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
@@ -54,7 +55,10 @@ export default function TimetableScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
+        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Timetable</Text>
+      </View>
       <View style={[styles.daySelector, { backgroundColor: theme.card }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {DAYS.map((day) => (
@@ -125,7 +129,7 @@ export default function TimetableScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   )
 }
 

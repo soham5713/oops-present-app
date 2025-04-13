@@ -28,6 +28,7 @@ import { BarChart, LineChart } from "react-native-chart-kit"
 import { LinearGradient } from "expo-linear-gradient"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "../firebase/config"
+import { SafeAreaView } from "react-native-safe-area-context"
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
@@ -488,25 +489,14 @@ export default function HomeScreen() {
     }
   }
 
-  // Get attendance percentage color
+  // Get gradient colors based on attendance percentage
   const getPercentageColor = (percentage: number) => {
     if (percentage >= 75) {
-      return theme.presentText
+      return isDarkMode ? "#059669" : "#10b981" // Green
     } else if (percentage >= 60) {
-      return theme.warning
+      return isDarkMode ? "#d97706" : "#f59e0b" // Amber
     } else {
-      return theme.absentText
-    }
-  }
-
-  // Get gradient colors based on attendance percentage
-  const getGradientColors = (percentage: number) => {
-    if (percentage >= 75) {
-      return isDarkMode ? ["#064e3b", "#065f46", "#047857"] : ["#d1fae5", "#a7f3d0", "#6ee7b7"]
-    } else if (percentage >= 60) {
-      return isDarkMode ? ["#78350f", "#92400e", "#b45309"] : ["#fef3c7", "#fde68a", "#fcd34d"]
-    } else {
-      return isDarkMode ? ["#7f1d1d", "#991b1b", "#b91c1c"] : ["#fee2e2", "#fecaca", "#fca5a5"]
+      return isDarkMode ? "#dc2626" : "#ef4444" // Red
     }
   }
 
@@ -661,7 +651,7 @@ export default function HomeScreen() {
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <LinearGradient
-            colors={[theme.primary, theme.primary + "CC", theme.primary + "99"]}
+            colors={[theme.primary, theme.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.tableHeader}
@@ -687,8 +677,6 @@ export default function HomeScreen() {
 
           {/* Table Rows */}
           {stats.map((stat, index) => {
-            const theoryGradient = getGradientColors(stat.theoryPercentage)
-            const labGradient = getGradientColors(stat.labPercentage)
 
             return (
               <View
@@ -709,14 +697,14 @@ export default function HomeScreen() {
                   <View style={styles.attendanceDetails}>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryPresent}</Text>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryTotal}</Text>
-                    <LinearGradient
-                      colors={theoryGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.percentageBadge}
+                    <View
+                      style={[
+                        styles.percentageBadge,
+                        { backgroundColor: getPercentageColor(stat.theoryPercentage) }
+                      ]}
                     >
                       <Text style={styles.percentageText}>{stat.theoryPercentage}%</Text>
-                    </LinearGradient>
+                    </View>
                   </View>
                 </View>
 
@@ -724,14 +712,14 @@ export default function HomeScreen() {
                   <View style={styles.attendanceDetails}>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labPresent}</Text>
                     <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labTotal}</Text>
-                    <LinearGradient
-                      colors={labGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.percentageBadge}
+                    <View
+                      style={[
+                        styles.percentageBadge,
+                        { backgroundColor: getPercentageColor(stat.labPercentage) }
+                      ]}
                     >
                       <Text style={styles.percentageText}>{stat.labPercentage}%</Text>
-                    </LinearGradient>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -743,7 +731,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
       {/* Animated Header */}
@@ -774,49 +762,6 @@ export default function HomeScreen() {
               </Animated.View>
             </TouchableOpacity>
           </View>
-
-          {/* Overall Attendance Progress */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressLabelContainer}>
-              <Text style={styles.progressLabel}>Theory Attendance</Text>
-              <Text style={styles.progressValue}>{overallTheoryAttendance}%</Text>
-            </View>
-            <View style={[styles.progressTrack, { backgroundColor: "rgba(255,255,255,0.3)" }]}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: progressAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ["0%", "100%"],
-                    }),
-                    backgroundColor:
-                      overallTheoryAttendance >= 75 ? "#10b981" : overallTheoryAttendance >= 60 ? "#f59e0b" : "#ef4444",
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
-          {/* Lab Attendance Progress */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressLabelContainer}>
-              <Text style={styles.progressLabel}>Lab Attendance</Text>
-              <Text style={styles.progressValue}>{overallLabAttendance}%</Text>
-            </View>
-            <View style={[styles.progressTrack, { backgroundColor: "rgba(255,255,255,0.3)" }]}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${overallLabAttendance}%`,
-                    backgroundColor:
-                      overallLabAttendance >= 75 ? "#10b981" : overallLabAttendance >= 60 ? "#f59e0b" : "#ef4444",
-                  },
-                ]}
-              />
-            </View>
-          </View>
         </LinearGradient>
       </Animated.View>
 
@@ -836,52 +781,35 @@ export default function HomeScreen() {
             },
           ]}
         >
-          <LinearGradient
-            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
-            style={[styles.statCard, styles.statCardElevated]}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.card }]}
+            onPress={() => navigation.navigate("Attendance")}
           >
-            <View style={[styles.statIconContainer, { backgroundColor: "#4f46e5" }]}>
-              <Ionicons name="people" size={24} color="white" />
-            </View>
-            <View style={styles.statInfo}>
-              <Text style={[styles.statValue, { color: theme.text }]}>{attendees.length}</Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Attendees</Text>
-            </View>
-          </LinearGradient>
+            <LinearGradient colors={["#4f46e5", "#4338ca"]} style={styles.actionIconContainer}>
+              <Ionicons name="checkbox" size={24} color="white" />
+            </LinearGradient>
+            <Text style={[styles.actionText, { color: theme.text }]}>Mark Attendance</Text>
+          </TouchableOpacity>
 
-          <LinearGradient
-            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
-            style={[styles.statCard, styles.statCardElevated]}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.card }]}
+            onPress={() => navigation.navigate("Manual")}
           >
-            <View style={[styles.statIconContainer, { backgroundColor: "#0ea5e9" }]}>
-              <Ionicons name="book" size={24} color="white" />
-            </View>
-            <View style={styles.statInfo}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {activeTab === "overall"
-                  ? overallStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)
-                  : monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Theory Classes</Text>
-            </View>
-          </LinearGradient>
+            <LinearGradient colors={["#0ea5e9", "#0284c7"]} style={styles.actionIconContainer}>
+              <Ionicons name="create" size={24} color="white" />
+            </LinearGradient>
+            <Text style={[styles.actionText, { color: theme.text }]}>Manual Records</Text>
+          </TouchableOpacity>
 
-          <LinearGradient
-            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
-            style={[styles.statCard, styles.statCardElevated]}
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.card }]}
+            onPress={() => navigation.navigate("Timetable")}
           >
-            <View style={[styles.statIconContainer, { backgroundColor: "#f97316" }]}>
-              <Ionicons name="flask" size={24} color="white" />
-            </View>
-            <View style={styles.statInfo}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {activeTab === "overall"
-                  ? overallStats.reduce((sum, stat) => sum + stat.labTotal, 0)
-                  : monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0)}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Lab Sessions</Text>
-            </View>
-          </LinearGradient>
+            <LinearGradient colors={["#f97316", "#ea580c"]} style={styles.actionIconContainer}>
+              <Ionicons name="calendar" size={24} color="white" />
+            </LinearGradient>
+            <Text style={[styles.actionText, { color: theme.text }]}>View Timetable</Text>
+          </TouchableOpacity>
         </Animated.View>
 
         {/* Tab Selector */}
@@ -959,11 +887,6 @@ export default function HomeScreen() {
 
             <View style={styles.monthTitleContainer}>
               <Text style={[styles.monthTitle, { color: theme.text }]}>{format(selectedMonth, "MMMM yyyy")}</Text>
-              {isSameMonth(selectedMonth, new Date()) && (
-                <View style={[styles.currentMonthBadge, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.currentMonthText}>Current</Text>
-                </View>
-              )}
             </View>
 
             <TouchableOpacity
@@ -1007,6 +930,11 @@ export default function HomeScreen() {
                   },
                 ]}
               >
+                {/* Attendance Table */}
+                <View style={styles.tableSection}>
+                  <Text style={[styles.tableSectionTitle, { color: theme.text }]}>Detailed Attendance</Text>
+                  {renderAttendanceTable(activeTab === "overall" ? overallStats : monthlyStats)}
+                </View>
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
                   {activeTab === "overall" ? "Overall Attendance" : "Monthly Attendance"}
                 </Text>
@@ -1142,61 +1070,11 @@ export default function HomeScreen() {
                   </>
                 )}
               </Animated.View>
-
-              {/* Attendance Table */}
-              <View style={styles.tableSection}>
-                <Text style={[styles.tableSectionTitle, { color: theme.text }]}>Detailed Attendance</Text>
-                {renderAttendanceTable(activeTab === "overall" ? overallStats : monthlyStats)}
-              </View>
             </>
           )}
         </View>
-
-        {/* Quick Actions */}
-        <Animated.View
-          style={[
-            styles.section,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Actions</Text>
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.card }]}
-              onPress={() => navigation.navigate("Attendance")}
-            >
-              <LinearGradient colors={["#4f46e5", "#4338ca"]} style={styles.actionIconContainer}>
-                <Ionicons name="checkbox" size={24} color="white" />
-              </LinearGradient>
-              <Text style={[styles.actionText, { color: theme.text }]}>Take Attendance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.card }]}
-              onPress={() => navigation.navigate("Manual")}
-            >
-              <LinearGradient colors={["#0ea5e9", "#0284c7"]} style={styles.actionIconContainer}>
-                <Ionicons name="create" size={24} color="white" />
-              </LinearGradient>
-              <Text style={[styles.actionText, { color: theme.text }]}>Manual Records</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: theme.card }]}
-              onPress={() => navigation.navigate("Timetable")}
-            >
-              <LinearGradient colors={["#f97316", "#ea580c"]} style={styles.actionIconContainer}>
-                <Ionicons name="calendar" size={24} color="white" />
-              </LinearGradient>
-              <Text style={[styles.actionText, { color: theme.text }]}>View Timetable</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   )
 }
 
@@ -1266,12 +1144,13 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 16,
-    marginTop: -20,
+    marginTop: 20,
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
+    flexWrap: "wrap",
   },
   statCard: {
     width: "31%",
@@ -1460,10 +1339,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   subjectCell: {
-    flex: 2,
+    flex: 1,
     paddingHorizontal: 8,
     fontSize: 14,
     fontWeight: "500",
+    textAlignVertical: 'center', // Add this for Android
+    alignSelf: 'center', // This helps for cross-platform alignment
   },
   theoryLabCell: {
     flex: 1.5,

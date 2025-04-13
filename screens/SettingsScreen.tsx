@@ -14,6 +14,7 @@ import {
   Modal,
   Linking,
 } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import * as FileSystem from "expo-file-system"
@@ -29,11 +30,14 @@ import { db } from "../firebase/config"
 import { updateProfile, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
 import { Divisions, getBatches } from "../timetable"
 import * as Print from "expo-print"
+// Add this import at the top with the other imports
+import { useToast } from "../context/ToastContext"
 
 export default function SettingsScreen() {
   const { attendees, attendanceRecords } = useAttendance()
   const { isDarkMode, toggleTheme } = useTheme()
   const { user, userProfile, logOut, updateUserProfile } = useUser()
+  const { showToast } = useToast()
 
   const theme = isDarkMode ? colors.dark : colors.light
 
@@ -378,12 +382,18 @@ export default function SettingsScreen() {
   }
 
   // Export data to PDF
+  // Then replace all Alert.alert calls with showToast
+  // For example, in the exportData function:
+
   const exportData = async () => {
     try {
       setIsExporting(true)
 
       if (!user?.uid) {
-        Alert.alert("Error", "You must be logged in to export data")
+        showToast({
+          message: "You must be logged in to export data",
+          type: "error",
+        })
         setIsExporting(false)
         return
       }
@@ -414,13 +424,22 @@ export default function SettingsScreen() {
           dialogTitle: "Share Attendance Report",
           UTI: "com.adobe.pdf",
         })
-        Alert.alert("Success", "Attendance report exported successfully")
+        showToast({
+          message: "Attendance report exported successfully",
+          type: "success",
+        })
       } else {
-        Alert.alert("Error", "Sharing is not available on this device")
+        showToast({
+          message: "Sharing is not available on this device",
+          type: "error",
+        })
       }
     } catch (error) {
       console.error("Error exporting data:", error)
-      Alert.alert("Error", "Failed to export attendance report")
+      showToast({
+        message: "Failed to export attendance report",
+        type: "error",
+      })
     } finally {
       setIsExporting(false)
     }
@@ -692,122 +711,106 @@ export default function SettingsScreen() {
   )
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Profile Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Profile</Text>
-        <LinearGradient
-          colors={isDarkMode ? ["#1f2937", "#111827"] : ["#ffffff", "#f9fafb"]}
-          style={[styles.profileCard, { borderColor: theme.border }]}
-        >
-          <View style={styles.profileHeader}>
-            <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImage} />
-              ) : (
-                <View style={[styles.profileImagePlaceholder, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.profileImageText}>
-                    {user?.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
-                  </Text>
-                </View>
-              )}
-              <View style={[styles.editImageButton, { backgroundColor: theme.primary }]}>
-                <Ionicons name="camera" size={14} color="white" />
-              </View>
-            </TouchableOpacity>
-
-            <View style={styles.profileInfo}>
-              {editMode ? (
-                <TextInput
-                  style={[
-                    styles.nameInput,
-                    {
-                      color: theme.text,
-                      borderColor: theme.border,
-                      backgroundColor: isDarkMode ? theme.background : "#f3f4f6",
-                    },
-                  ]}
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  placeholder="Enter your name"
-                  placeholderTextColor={theme.secondaryText}
-                />
-              ) : (
-                <Text style={[styles.profileName, { color: theme.text }]}>{user?.displayName || "User"}</Text>
-              )}
-              <Text style={[styles.profileEmail, { color: theme.secondaryText }]}>{user?.email}</Text>
-            </View>
-
-            {editMode ? (
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.primary }]}
-                onPress={saveProfileChanges}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Ionicons name="checkmark" size={20} color="white" />
-                )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.editButton} onPress={() => setEditMode(true)}>
-                <Ionicons name="create-outline" size={20} color={theme.primary} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-          <View style={styles.profileStats}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>{attendees.length}</Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attendees</Text>
-            </View>
-
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>{attendanceRecords.length}</Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Records</Text>
-            </View>
-
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.text }]}>
-                {userProfile?.division && userProfile?.batch ? `${userProfile.division}-${userProfile.batch}` : "N/A"}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Division</Text>
-            </View>
-          </View>
-        </LinearGradient>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
+        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Settings</Text>
       </View>
 
-      {/* Preferences Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Preferences</Text>
-        <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: theme.text }]}>Dark Mode</Text>
-              <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
-                Switch between light and dark themes
-              </Text>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View style={styles.profileCardContainer}>
+          <LinearGradient
+            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#4f46e5", "#4338ca"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.profileCardGradient}
+          >
+            <View style={styles.profileContent}>
+              <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.profileImage} />
+                ) : (
+                  <View
+                    style={[styles.profileImagePlaceholder, { backgroundColor: isDarkMode ? "#374151" : "#6366f1" }]}
+                  >
+                    <Text style={styles.profileImageText}>
+                      {user?.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.editImageButton, { backgroundColor: theme.primary }]}>
+                  <Ionicons name="camera" size={14} color="white" />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.profileInfo}>
+                {editMode ? (
+                  <TextInput
+                    style={[
+                      styles.nameInput,
+                      {
+                        color: "white",
+                        borderColor: "rgba(255,255,255,0.3)",
+                        backgroundColor: "rgba(255,255,255,0.1)",
+                      },
+                    ]}
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    placeholder="Enter your name"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                  />
+                ) : (
+                  <Text style={styles.profileName}>{user?.displayName || "User"}</Text>
+                )}
+                <Text style={styles.profileEmail}>{user?.email}</Text>
+
+                {editMode ? (
+                  <TouchableOpacity style={styles.saveButton} onPress={saveProfileChanges} disabled={isLoading}>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Save Changes</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.editProfileButton} onPress={() => setEditMode(true)}>
+                    <Ionicons name="create-outline" size={16} color="white" />
+                    <Text style={styles.editProfileText}>Edit Profile</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-            <Switch
-              value={isDarkMode}
-              onValueChange={toggleTheme}
-              trackColor={{ false: "#d1d5db", true: theme.primary }}
-              thumbColor="white"
-            />
-          </View>
+          </LinearGradient>
+        </View>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Preferences</Text>
+          <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={theme.primary} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.text }]}>Dark Mode</Text>
+                <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
+                  Switch between light and dark themes
+                </Text>
+              </View>
+              <Switch
+                value={isDarkMode}
+                onValueChange={toggleTheme}
+                trackColor={{ false: "#d1d5db", true: theme.primary }}
+                thumbColor="white"
+              />
+            </View>
 
-          <TouchableOpacity style={styles.settingButton} onPress={() => setShowDivisionModal(true)}>
-            <View style={styles.settingButtonContent}>
-              <Ionicons name="school-outline" size={24} color={theme.primary} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <TouchableOpacity style={styles.settingButton} onPress={() => setShowDivisionModal(true)}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="school-outline" size={22} color={theme.primary} />
+              </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.text }]}>Division & Batch</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
@@ -816,140 +819,147 @@ export default function SettingsScreen() {
                     : "Not set"}
                 </Text>
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
-          </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {/* Data Management Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Data Management</Text>
-        <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
-          <TouchableOpacity style={styles.settingButton} onPress={exportData} disabled={isExporting}>
-            <View style={styles.settingButtonContent}>
-              <Ionicons name="document-text-outline" size={24} color={theme.primary} />
+        {/* Data Management Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Data Management</Text>
+          <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
+            <TouchableOpacity style={styles.settingButton} onPress={exportData} disabled={isExporting}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="document-text-outline" size={22} color={theme.primary} />
+              </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.text }]}>Export Attendance Report</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
                   Generate and share a PDF attendance report
                 </Text>
               </View>
-            </View>
-            {isExporting ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
-            )}
-          </TouchableOpacity>
+              {isExporting ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+              )}
+            </TouchableOpacity>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-          <TouchableOpacity style={styles.settingButton} onPress={clearAllData}>
-            <View style={styles.settingButtonContent}>
-              <Ionicons name="trash-outline" size={24} color={theme.error} />
+            <TouchableOpacity style={styles.settingButton} onPress={clearAllData}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="trash-outline" size={22} color={theme.error} />
+              </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.error }]}>Clear All Data</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
                   Delete all attendees and records
                 </Text>
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
-          </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
 
-      {/* Support Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Support</Text>
-        <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
-          <TouchableOpacity style={styles.settingButton} onPress={openEmailSupport}>
-            <View style={styles.settingButtonContent}>
-              <Ionicons name="mail-outline" size={24} color={theme.primary} />
+        {/* Support Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Support</Text>
+          <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
+            <TouchableOpacity style={styles.settingButton} onPress={openEmailSupport}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="mail-outline" size={22} color={theme.primary} />
+              </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.text }]}>Contact Support</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
                   Get help with any issues
                 </Text>
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
-          </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
 
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-          <TouchableOpacity style={styles.settingButton} onPress={openWebsite}>
-            <View style={styles.settingButtonContent}>
-              <Ionicons name="globe-outline" size={24} color={theme.primary} />
+            <TouchableOpacity style={styles.settingButton} onPress={openWebsite}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="globe-outline" size={22} color={theme.primary} />
+              </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingTitle, { color: theme.text }]}>Visit Website</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
                   Learn more about our app
                 </Text>
               </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <View style={styles.aboutRow}>
+              <Text style={[styles.appName, { color: theme.text }]}>Student Attendance Tracker</Text>
+              <Text style={[styles.appVersion, { color: theme.secondaryText }]}>Version 1.0.0</Text>
+              <Text style={[styles.appDescription, { color: theme.secondaryText }]}>
+                A simple app to track student attendance for classes, meetings, or events.
+              </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
-          </TouchableOpacity>
-
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-          <View style={styles.aboutRow}>
-            <Text style={[styles.appName, { color: theme.text }]}>Student Attendance Tracker</Text>
-            <Text style={[styles.appVersion, { color: theme.secondaryText }]}>Version 1.0.0</Text>
-            <Text style={[styles.appDescription, { color: theme.secondaryText }]}>
-              A simple app to track student attendance for classes, meetings, or events.
-            </Text>
           </View>
         </View>
-      </View>
 
-      {/* Account Actions */}
-      <View style={styles.accountActions}>
-        <TouchableOpacity style={[styles.logoutButton, { backgroundColor: theme.error }]} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color="white" />
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
+        {/* Account Actions */}
+        <View style={styles.accountActions}>
+          <TouchableOpacity style={[styles.logoutButton, { backgroundColor: theme.error }]} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="white" />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.deleteAccountButton, { borderColor: theme.error }]}
-          onPress={() => setShowDeleteAccountModal(true)}
-        >
-          <Text style={[styles.deleteAccountButtonText, { color: theme.error }]}>Delete Account</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.deleteAccountButton, { borderColor: theme.error }]}
+            onPress={() => setShowDeleteAccountModal(true)}
+          >
+            <Text style={[styles.deleteAccountButtonText, { color: theme.error }]}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Modals */}
-      {renderDeleteAccountModal()}
-      {renderDivisionModal()}
-      {renderBatchModal()}
-    </ScrollView>
+        {/* Modals */}
+        {renderDeleteAccountModal()}
+        {renderDivisionModal()}
+        {renderBatchModal()}
+      </ScrollView>
+    </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
   container: {
     flex: 1,
   },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
-  },
-  profileCard: {
-    borderRadius: 16,
-    padding: 16,
+  profileCardContainer: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 5,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
-  profileHeader: {
+  profileCardGradient: {
+    padding: 20,
+  },
+  profileContent: {
     flexDirection: "row",
     alignItems: "center",
   },
@@ -957,123 +967,140 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   profileImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.8)",
   },
   profileImagePlaceholder: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.8)",
   },
   profileImageText: {
     color: "white",
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
   },
   editImageButton: {
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
     borderColor: "white",
   },
   profileInfo: {
-    marginLeft: 16,
+    marginLeft: 20,
     flex: 1,
   },
   profileName: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "bold",
+    color: "white",
+    marginBottom: 4,
   },
   profileEmail: {
     fontSize: 14,
-    marginTop: 4,
+    color: "rgba(255,255,255,0.8)",
+    marginBottom: 12,
   },
   nameInput: {
     fontSize: 18,
     fontWeight: "500",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
+    marginBottom: 12,
   },
-  editButton: {
-    padding: 8,
+  editProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignSelf: "flex-start",
+  },
+  editProfileText: {
+    color: "white",
+    marginLeft: 4,
+    fontWeight: "500",
+    fontSize: 13,
   },
   saveButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignSelf: "flex-start",
   },
-  divider: {
-    height: 1,
-    marginVertical: 16,
+  saveButtonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 14,
   },
-  profileStats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  section: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
   },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statValue: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
+    marginBottom: 12,
+    marginLeft: 4,
   },
   settingCard: {
     borderRadius: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   settingRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
+  },
+  settingIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(79, 70, 229, 0.1)",
+    marginRight: 16,
   },
   settingInfo: {
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
+    marginBottom: 4,
   },
   settingDescription: {
     fontSize: 14,
-    marginTop: 4,
+  },
+  divider: {
+    height: 1,
+    marginHorizontal: 16,
   },
   settingButton: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-  },
-  settingButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
   },
   aboutRow: {
     padding: 16,
@@ -1081,14 +1108,14 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 18,
     fontWeight: "bold",
+    marginBottom: 4,
   },
   appVersion: {
     fontSize: 14,
-    marginTop: 4,
+    marginBottom: 8,
   },
   appDescription: {
     fontSize: 14,
-    marginTop: 8,
     lineHeight: 20,
   },
   accountActions: {
@@ -1099,8 +1126,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     marginBottom: 16,
   },
   logoutButtonText: {
@@ -1112,8 +1139,8 @@ const styles = StyleSheet.create({
   deleteAccountButton: {
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
   },
   deleteAccountButtonText: {

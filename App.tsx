@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons"
 import { AttendanceProvider } from "./context/AttendanceContext"
 import { ThemeProvider, useTheme } from "./context/ThemeContext"
 import { UserProvider, useUser } from "./context/UserContext"
+import { ToastProvider } from "./context/ToastContext" // Import the ToastProvider
 import { View, ActivityIndicator, LogBox, Text } from "react-native"
 import { useEffect, useState } from "react"
 
@@ -96,8 +97,8 @@ function MainTabs() {
         component={ManualAttendanceScreen}
         options={{ headerShown: false, title: "Manual Attendance" }}
       />
-      <Tab.Screen name="Timetable" component={TimetableScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Timetable" component={TimetableScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   )
 }
@@ -144,9 +145,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <UserProvider>
-        <AttendanceProvider>
-          <AppNavigator />
-        </AttendanceProvider>
+        <ToastProvider>
+          <AttendanceProvider>
+            <AppNavigator />
+          </AttendanceProvider>
+        </ToastProvider>
       </UserProvider>
     </ThemeProvider>
   )

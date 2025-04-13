@@ -11,11 +11,11 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
-  SafeAreaView,
   Animated,
   Dimensions,
   Platform,
 } from "react-native"
+import { SafeAreaView } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
@@ -28,6 +28,7 @@ import {
   type AttendanceRecord,
 } from "../firebase/attendanceService"
 import { AllSubjects } from "../timetable"
+import { useToast } from "../context/ToastContext"
 
 type ManualAttendanceRecord = {
   id: string
@@ -45,6 +46,7 @@ export default function ManualAttendanceScreen() {
   const { user } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
+  const { showToast } = useToast()
 
   const [records, setRecords] = useState<ManualAttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -86,46 +88,47 @@ export default function ManualAttendanceScreen() {
   }, [selectedDate])
 
   // Show success toast
-  const showToast = (message: string) => {
-    setSuccessMessage(message)
-    setShowSuccessToast(true)
+  // Remove this function
+  // const showToast = (message: string) => {
+  //   setSuccessMessage(message)
+  //   setShowSuccessToast(true)
 
-    // Reset animation values
-    fadeAnim.setValue(0)
-    slideAnim.setValue(50)
+  //   // Reset animation values
+  //   fadeAnim.setValue(0)
+  //   slideAnim.setValue(50)
 
-    // Animate in
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start()
+  //   // Animate in
+  //   Animated.parallel([
+  //     Animated.timing(fadeAnim, {
+  //       toValue: 1,
+  //       duration: 300,
+  //       useNativeDriver: true,
+  //     }),
+  //     Animated.timing(slideAnim, {
+  //       toValue: 0,
+  //       duration: 300,
+  //       useNativeDriver: true,
+  //     }),
+  //   ]).start()
 
-    // Animate out after delay
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 50,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowSuccessToast(false)
-      })
-    }, 2500)
-  }
+  //   // Animate out after delay
+  //   setTimeout(() => {
+  //     Animated.parallel([
+  //       Animated.timing(fadeAnim, {
+  //         toValue: 0,
+  //         duration: 300,
+  //         useNativeDriver: true,
+  //       }),
+  //       Animated.timing(slideAnim, {
+  //         toValue: 50,
+  //         duration: 300,
+  //         useNativeDriver: true,
+  //       }),
+  //     ]).start(() => {
+  //       setShowSuccessToast(false)
+  //     })
+  //   }, 2500)
+  // }
 
   // Load records for the selected date
   const loadRecords = useCallback(async () => {
@@ -163,12 +166,18 @@ export default function ManualAttendanceScreen() {
   // Add a new manual record
   const addManualRecord = async () => {
     if (!user?.uid) {
-      Alert.alert("Error", "You must be logged in to add records")
+      showToast({
+        message: "You must be logged in to add records",
+        type: "error",
+      })
       return
     }
 
     if (!newRecord.subject) {
-      Alert.alert("Error", "Please select a subject")
+      showToast({
+        message: "Please select a subject",
+        type: "warning",
+      })
       return
     }
 
@@ -203,10 +212,16 @@ export default function ManualAttendanceScreen() {
       setRefreshKey((prev) => prev + 1)
 
       // Show success toast
-      showToast("Record added successfully")
+      showToast({
+        message: "Record added successfully",
+        type: "success",
+      })
     } catch (error) {
       console.error("Error adding manual record:", error)
-      Alert.alert("Error", "Failed to add manual record")
+      showToast({
+        message: "Failed to add manual record",
+        type: "error",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -229,7 +244,10 @@ export default function ManualAttendanceScreen() {
             setRecords((prev) => prev.filter((record) => record.id !== recordId))
 
             // Show success toast
-            showToast("Record deleted successfully")
+            showToast({
+              message: "Record deleted successfully",
+              type: "success",
+            })
           } catch (error) {
             console.error("Error deleting record:", error)
             Alert.alert("Error", "Failed to delete record")
@@ -392,6 +410,14 @@ export default function ManualAttendanceScreen() {
 
             {/* Calendar grid */}
             <View style={styles.calendarGrid}>
+              {/* Days of week */}
+              <View style={styles.weekdayHeader}>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => (
+                  <Text key={index} style={[styles.weekdayText, { color: theme.secondaryText }]}>
+                    {day}
+                  </Text>
+                ))}
+              </View>
 
               {/* Date selector */}
               <View style={styles.dateSelector}>
@@ -978,7 +1004,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 0,
   },
   subjectContainer: {
     flexDirection: "row",
@@ -1133,7 +1158,7 @@ const styles = StyleSheet.create({
   subjectChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 16,
     marginRight: 8,
     borderWidth: 1,
   },
@@ -1183,11 +1208,12 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 15,
     textAlignVertical: "top",
-    minHeight: 40,
+    minHeight: 80,
   },
   modalFooter: {
     flexDirection: "row",
     padding: 16,
+    borderTopWidth: 1,
   },
   cancelButton: {
     flex: 1,
@@ -1202,7 +1228,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   saveButton: {
-    flex: 1,
+    flex: 2,
     flexDirection: "row",
     paddingVertical: 12,
     alignItems: "center",
@@ -1254,9 +1280,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   currentDateContainer: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",

@@ -10,18 +10,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
+import { useToast } from "../context/ToastContext"
 import { colors } from "../utils/theme"
 
 export default function SignupScreen() {
   const navigation = useNavigation()
   const { signUp } = useUser()
   const { isDarkMode } = useTheme()
+  const { showToast } = useToast()
   const theme = isDarkMode ? colors.dark : colors.light
 
   const [name, setName] = useState("")
@@ -33,35 +34,61 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields")
+      showToast({
+        message: "Please fill in all fields",
+        type: "warning",
+      })
       return
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match")
+      showToast({
+        message: "Passwords do not match",
+        type: "error",
+      })
       return
     }
 
     if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters")
+      showToast({
+        message: "Password must be at least 6 characters",
+        type: "warning",
+      })
       return
     }
 
     setIsLoading(true)
     try {
       await signUp(email, password, name)
+      showToast({
+        message: "Account created successfully!",
+        type: "success",
+      })
       // Navigation is handled by the AppNavigator based on auth state
     } catch (error) {
       console.error("Signup error:", error)
       // Provide more specific error messages based on Firebase error codes
       if (error.code === "auth/email-already-in-use") {
-        Alert.alert("Signup Failed", "This email is already in use. Please use a different email or try logging in.")
+        showToast({
+          message: "This email is already in use. Please use a different email or try logging in.",
+          type: "error",
+          duration: 4000,
+        })
       } else if (error.code === "auth/invalid-email") {
-        Alert.alert("Signup Failed", "Invalid email format. Please check your email.")
+        showToast({
+          message: "Invalid email format. Please check your email.",
+          type: "error",
+        })
       } else if (error.code === "auth/weak-password") {
-        Alert.alert("Signup Failed", "Password is too weak. Please use a stronger password.")
+        showToast({
+          message: "Password is too weak. Please use a stronger password.",
+          type: "error",
+        })
       } else {
-        Alert.alert("Signup Failed", "Could not create account. Please try again.")
+        showToast({
+          message: "Could not create account. Please try again.",
+          type: "error",
+        })
       }
     } finally {
       setIsLoading(false)
