@@ -11,8 +11,6 @@ import {
   Dimensions,
   Animated,
   Easing,
-  Platform,
-  StatusBar,
   RefreshControl,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
@@ -29,6 +27,10 @@ import { LinearGradient } from "expo-linear-gradient"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { SafeAreaView } from "react-native-safe-area-context"
+import Header from "../components/Header"
+
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
@@ -55,7 +57,7 @@ type MonthlyDataPoint = {
 export default function HomeScreen() {
   const navigation = useNavigation()
   const { attendees } = useAttendance()
-  const { user } = useUser()
+  const { user, userProfile } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
 
@@ -398,7 +400,6 @@ export default function HomeScreen() {
             labAttendance: labPercentage,
           })
         } catch (error) {
-          console.log(`Error fetching data for ${format(month, "MMM")}:`, error)
           // Add a placeholder value if there's an error
           trendData.push({
             month: format(month, "MMM"),
@@ -721,40 +722,22 @@ export default function HomeScreen() {
     )
   }
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-
-      {/* Animated Header */}
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[theme.primary + "DD", theme.primary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={styles.title}>Oops Present</Text>
-              <Text style={styles.date}>{format(new Date(), "EEEE, MMMM d, yyyy")}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.refreshButton} onPress={refreshData} disabled={isRefreshing}>
-              <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                <Ionicons name="refresh" size={24} color="white" />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+  // Create a refresh button component for the header
+  const RefreshButton = () => (
+    <TouchableOpacity style={styles.refreshButton} onPress={refreshData} disabled={isRefreshing}>
+      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+        <Ionicons name="refresh" size={24} color="white" />
       </Animated.View>
+    </TouchableOpacity>
+  )
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <Header
+        title="Oops Present"
+        subtitle={userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Dashboard"}
+        rightComponent={<RefreshButton />}
+      />
 
       <ScrollView
         style={styles.content}
@@ -1069,33 +1052,14 @@ export default function HomeScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    overflow: "hidden",
-  },
-  headerGradient: {
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "white",
-    letterSpacing: 0.3,
-  },
-  date: {
-    fontSize: 15,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 4,
+  content: {
+    flex: 1,
+    padding: spacing.screenPadding,
   },
   refreshButton: {
     width: 40,
@@ -1106,12 +1070,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   progressContainer: {
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   progressLabelContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   progressLabel: {
     color: "white",
@@ -1132,29 +1096,20 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    marginTop: 20,
-  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
     flexWrap: "wrap",
+    paddingBottom: spacing.md,
   },
   statCard: {
     width: "31%",
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.sm,
     alignItems: "center",
   },
   statCardElevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...createShadow(2),
   },
   statIconContainer: {
     width: 48,
@@ -1162,7 +1117,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   statInfo: {
     alignItems: "center",
@@ -1173,18 +1128,14 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: spacing.xs,
     textAlign: "center",
   },
   tabContainer: {
     flexDirection: "row",
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.md,
+    ...createShadow(1),
     overflow: "hidden",
   },
   tab: {
@@ -1197,7 +1148,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabIcon: {
-    marginRight: 6,
+    marginRight: spacing.xs,
   },
   activeTab: {
     borderBottomWidth: 3,
@@ -1210,14 +1161,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    ...createShadow(1),
   },
   monthNavButton: {
     width: 40,
@@ -1235,10 +1182,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   currentMonthBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: spacing.borderRadius.large,
+    marginLeft: spacing.sm,
   },
   currentMonthText: {
     color: "white",
@@ -1246,38 +1193,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   dashboardContainer: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   sectionHeader: {
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     letterSpacing: 0.2,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   chartsContainer: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   chartCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...createShadow(1),
   },
   chartTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   pieChartContainer: {
     alignItems: "center",
@@ -1291,32 +1234,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   tableSection: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   tableSectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
     letterSpacing: 0.2,
   },
   tableContainer: {
-    borderRadius: 16,
+    borderRadius: spacing.borderRadius.large,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    ...createShadow(1),
   },
   tableHeader: {
     flexDirection: "row",
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm,
   },
   tableRow: {
     flexDirection: "row",
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.sm,
   },
   headerCell: {
     fontSize: 14,
@@ -1331,11 +1270,11 @@ const styles = StyleSheet.create({
   },
   subjectCell: {
     flex: 1,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     fontSize: 14,
     fontWeight: "500",
-    textAlignVertical: "center", // Add this for Android
-    alignSelf: "center", // This helps for cross-platform alignment
+    textAlignVertical: "center",
+    alignSelf: "center",
   },
   theoryLabCell: {
     flex: 1.5,
@@ -1345,7 +1284,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   attendanceValue: {
     fontSize: 13,
@@ -1354,9 +1293,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   percentageBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: spacing.borderRadius.large,
     flex: 1,
     alignItems: "center",
   },
@@ -1371,42 +1310,42 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   loadingContainer: {
-    padding: 32,
+    padding: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: spacing.md,
     fontSize: 15,
   },
   errorContainer: {
-    padding: 32,
-    borderRadius: 16,
+    padding: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 16,
+    marginVertical: spacing.md,
   },
   errorText: {
     fontSize: 16,
     textAlign: "center",
-    marginVertical: 12,
+    marginVertical: spacing.sm,
   },
   retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 8,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
+    marginTop: spacing.sm,
   },
   retryButtonText: {
     color: "white",
     fontWeight: "600",
   },
   emptyState: {
-    padding: 32,
-    borderRadius: 16,
+    padding: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: 16,
+    marginVertical: spacing.md,
   },
   emptyIconContainer: {
     width: 80,
@@ -1414,31 +1353,31 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   emptyStateText: {
     fontSize: 15,
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyStateButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
   },
   emptyStateButtonText: {
     color: "white",
     fontWeight: "600",
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   actionsContainer: {
     flexDirection: "row",
@@ -1446,15 +1385,11 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   actionButton: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.md,
     width: "31%",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    ...createShadow(1),
   },
   actionIconContainer: {
     width: 48,
@@ -1462,11 +1397,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   actionText: {
     fontSize: 13,
-    marginTop: 8,
+    marginTop: spacing.sm,
     textAlign: "center",
     fontWeight: "500",
   },

@@ -29,6 +29,10 @@ import {
 } from "../firebase/attendanceService"
 import { AllSubjects } from "../timetable"
 import { useToast } from "../context/ToastContext"
+import Header from "../components/Header"
+
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
 
 type ManualAttendanceRecord = {
   id: string
@@ -43,6 +47,7 @@ type ManualAttendanceRecord = {
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
 
 export default function ManualAttendanceScreen() {
+  const { userProfile } = useUser()
   const { user } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
@@ -464,11 +469,13 @@ export default function ManualAttendanceScreen() {
   )
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.headerText + "CC" }]}>Manual Attendance Records</Text>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <Header
+        title="Oops Present"
+        subtitle={
+          userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Manual Attendance"
+        }
+      />
 
       {/* Success Toast */}
       {showSuccessToast && (
@@ -862,47 +869,29 @@ export default function ManualAttendanceScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
   container: {
     flex: 1,
-    padding: 16,
-  },
-  header: {
-    padding: 16,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    marginTop: 4,
-    fontWeight: "400",
+    padding: spacing.screenPadding,
   },
   toast: {
     position: "absolute",
     top: Platform.OS === "ios" ? 100 : 80,
-    left: 20,
-    right: 20,
+    left: spacing.screenPadding,
+    right: spacing.screenPadding,
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
     zIndex: 1000,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 4,
+    ...createShadow(2),
   },
   toastText: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     fontWeight: "500",
     fontSize: 14,
   },
@@ -910,14 +899,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 10,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.md,
+    ...createShadow(1),
   },
   dateInfo: {
     flex: 1,
@@ -925,7 +910,7 @@ const styles = StyleSheet.create({
   dayOfWeek: {
     fontSize: 15,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     letterSpacing: 0.2,
   },
   fullDate: {
@@ -943,25 +928,21 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.sm,
+    ...createShadow(1),
   },
   searchInputContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: spacing.borderRadius.large,
+    paddingHorizontal: spacing.sm,
     height: 38,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   searchInput: {
     flex: 1,
@@ -974,11 +955,11 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 12,
+    marginLeft: spacing.sm,
   },
   recordsCountContainer: {
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   recordsCount: {
     fontSize: 13,
@@ -988,14 +969,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recordCard: {
-    borderRadius: 10,
-    marginBottom: 12,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    ...createShadow(1),
     borderLeftWidth: 3,
   },
   recordHeader: {
@@ -1011,13 +988,13 @@ const styles = StyleSheet.create({
   subjectText: {
     fontSize: 15,
     fontWeight: "600",
-    marginRight: 8,
+    marginRight: spacing.sm,
     letterSpacing: 0.2,
   },
   typeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: spacing.borderRadius.large / 2,
   },
   typeText: {
     fontSize: 11,
@@ -1027,9 +1004,9 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
   },
   statusText: {
     fontSize: 11,
@@ -1038,27 +1015,27 @@ const styles = StyleSheet.create({
   },
   notesText: {
     fontSize: 14,
-    marginTop: 4,
+    marginTop: spacing.xs,
     lineHeight: 20,
     fontWeight: "400",
   },
   recordActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
     borderTopWidth: 1,
   },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 6,
-    borderRadius: 6,
+    padding: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
   },
   actionText: {
     fontSize: 13,
     fontWeight: "500",
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
   addButton: {
     width: 52,
@@ -1066,29 +1043,25 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
+    ...createShadow(2),
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: spacing.xl,
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: spacing.md,
     fontSize: 15,
     fontWeight: "500",
   },
   emptyState: {
-    padding: 32,
-    borderRadius: 10,
+    padding: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   emptyStateIcon: {
     width: 70,
@@ -1096,12 +1069,12 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   emptyStateTitle: {
     fontSize: 17,
     fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     letterSpacing: 0.2,
   },
   emptyStateText: {
@@ -1116,20 +1089,20 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: spacing.borderRadius.large,
+    borderTopRightRadius: spacing.borderRadius.large,
     maxHeight: "80%",
   },
   datePickerContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
+    borderTopLeftRadius: spacing.borderRadius.large,
+    borderTopRightRadius: spacing.borderRadius.large,
+    padding: spacing.md,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
@@ -1138,26 +1111,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   modalBody: {
-    padding: 16,
+    padding: spacing.md,
     maxHeight: 400,
   },
   inputLabel: {
     fontSize: 15,
     fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
     letterSpacing: 0.2,
   },
   pickerContainer: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.sm,
   },
   subjectChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginRight: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
+    marginRight: spacing.sm,
     borderWidth: 1,
   },
   subjectChipText: {
@@ -1166,15 +1139,15 @@ const styles = StyleSheet.create({
   },
   typeToggle: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   typeButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     alignItems: "center",
     borderWidth: 1,
-    marginHorizontal: 4,
-    borderRadius: 8,
+    marginHorizontal: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
   },
   typeButtonText: {
     fontWeight: "500",
@@ -1182,44 +1155,44 @@ const styles = StyleSheet.create({
   },
   statusToggle: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   statusToggleButton: {
     flex: 1,
     flexDirection: "row",
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    marginHorizontal: 4,
-    borderRadius: 8,
+    marginHorizontal: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
   },
   statusToggleText: {
     fontWeight: "500",
-    marginLeft: 4,
+    marginLeft: spacing.xs,
     fontSize: 13,
   },
   notesInput: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.sm,
     fontSize: 15,
     textAlignVertical: "top",
     minHeight: 80,
   },
   modalFooter: {
     flexDirection: "row",
-    padding: 16,
+    padding: spacing.md,
     borderTopWidth: 1,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.large,
     borderWidth: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   cancelButtonText: {
     fontSize: 15,
@@ -1228,10 +1201,10 @@ const styles = StyleSheet.create({
   saveButton: {
     flex: 2,
     flexDirection: "row",
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.large,
   },
   saveButtonText: {
     color: "white",
@@ -1239,13 +1212,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   calendarView: {
-    padding: 16,
+    padding: spacing.md,
     alignItems: "center",
   },
   calendarMonth: {
     fontSize: 17,
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: spacing.md,
     letterSpacing: 0.2,
   },
   calendarGrid: {
@@ -1255,8 +1228,8 @@ const styles = StyleSheet.create({
   weekdayHeader: {
     flexDirection: "row",
     width: "100%",
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   weekdayText: {
     flex: 1,
@@ -1283,11 +1256,7 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    ...createShadow(1),
   },
   currentDate: {
     fontSize: 22,
@@ -1295,20 +1264,20 @@ const styles = StyleSheet.create({
   },
   currentDay: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   todayIndicator: {
-    marginTop: 12,
+    marginTop: spacing.sm,
   },
   todayText: {
     fontSize: 13,
     fontWeight: "600",
   },
   confirmDateButton: {
-    marginTop: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    marginTop: spacing.xl,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
     alignItems: "center",
   },
   confirmDateText: {

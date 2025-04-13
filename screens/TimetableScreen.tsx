@@ -7,6 +7,10 @@ import { useTheme } from "../context/ThemeContext"
 import { colors } from "../utils/theme"
 import { getDivisionTimetable } from "../timetable"
 import { SafeAreaView } from "react-native-safe-area-context"
+import Header from "../components/Header"
+
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
@@ -55,10 +59,12 @@ export default function TimetableScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <Header
+        title="Oops Present"
+        subtitle={userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Timetable"}
+      />
+
       <View style={[styles.daySelector, { backgroundColor: theme.card }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {DAYS.map((day) => (
@@ -86,14 +92,6 @@ export default function TimetableScreen() {
           ))}
         </ScrollView>
       </View>
-
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          {userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Timetable"}
-        </Text>
-        <Text style={[styles.headerSubtitle, { color: theme.secondaryText }]}>{selectedDay}</Text>
-      </View>
-
       <ScrollView style={styles.timetableContainer}>
         {timetable.length > 0 ? (
           timetable.map((item, index) => (
@@ -133,52 +131,44 @@ export default function TimetableScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   daySelector: {
-    paddingVertical: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: spacing.sm,
+    ...createShadow(1),
     zIndex: 1,
+    margin: spacing.md,
+    borderRadius: spacing.borderRadius.large,
   },
   dayButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    marginHorizontal: 4,
-    borderRadius: 20,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
   },
   dayButtonText: {
     fontWeight: "500",
   },
-  header: {
-    padding: 16,
+  dayInfo: {
+    padding: spacing.md,
+    alignItems: "center",
   },
-  headerTitle: {
-    fontSize: 20,
+  selectedDay: {
+    fontSize: 18,
     fontWeight: "bold",
   },
-  headerSubtitle: {
-    fontSize: 16,
-    marginTop: 4,
-  },
   timetableContainer: {
-    padding: 16,
+    padding: spacing.md,
   },
   subjectCard: {
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.md,
+    marginBottom: spacing.md,
     borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    ...createShadow(1),
   },
   subjectInfo: {
     flexDirection: "row",
@@ -190,16 +180,16 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.large / 2,
   },
   typeText: {
     fontSize: 12,
     fontWeight: "bold",
   },
   emptyState: {
-    padding: 24,
+    padding: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },

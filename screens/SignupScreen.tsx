@@ -19,6 +19,9 @@ import { useTheme } from "../context/ThemeContext"
 import { useToast } from "../context/ToastContext"
 import { colors } from "../utils/theme"
 
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
+
 export default function SignupScreen() {
   const navigation = useNavigation()
   const { signUp } = useUser()
@@ -214,53 +217,50 @@ export default function SignupScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 20,
+    padding: spacing.screenPadding,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: spacing.xl,
   },
   appName: {
     fontSize: 28,
     fontWeight: "bold",
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   formContainer: {
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.xl,
+    ...createShadow(1),
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: spacing.xl,
     textAlign: "center",
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   label: {
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: spacing.borderRadius.large,
+    paddingHorizontal: spacing.md,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: spacing.sm,
   },
   input: {
     flex: 1,
@@ -269,15 +269,11 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 56,
-    borderRadius: 12,
+    borderRadius: spacing.borderRadius.large,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: spacing.xl,
+    ...createShadow(1),
   },
   buttonText: {
     color: "white",
@@ -287,7 +283,7 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: spacing.xl,
   },
   footerText: {
     fontSize: 16,
@@ -295,6 +291,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 16,
     fontWeight: "bold",
-    marginLeft: 5,
+    marginLeft: spacing.xs,
   },
 })

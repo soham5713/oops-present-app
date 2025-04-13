@@ -76,7 +76,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const password = await AsyncStorage.getItem(PASSWORD_KEY)
 
       if (email && password) {
-        console.log("Found stored credentials, attempting auto-login")
         try {
           await signInWithEmailAndPassword(auth, email, password)
           // The onAuthStateChanged listener will handle setting the user and profile
@@ -103,7 +102,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log("Auth state changed:", currentUser ? "logged in" : "logged out")
       setUser(currentUser)
 
       if (currentUser) {

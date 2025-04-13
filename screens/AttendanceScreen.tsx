@@ -11,6 +11,10 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { saveAttendance, getAttendanceByDate, type AttendanceRecord } from "../firebase/attendanceService"
 import { useToast } from "../context/ToastContext"
 import { SafeAreaView } from "react-native-safe-area-context"
+import Header from "../components/Header"
+
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
 
 // Define the subject type based on the timetable structure
 type SubjectType = {
@@ -384,15 +388,13 @@ export default function AttendanceScreen() {
   }, [currentMonth, getDaysInMonth, goToNextMonth, goToPreviousMonth, markedDates, selectedDate, theme, isDarkMode])
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
-        <Text style={[styles.headerSubtitle, { color: theme.headerText + "CC" }]}>
-          {userProfile?.division
-            ? `Division ${userProfile.division} - Batch ${userProfile.batch}`
-            : "Attendance Tracker"}
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <Header
+        title="Oops Present"
+        subtitle={
+          userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Attendance Tracker"
+        }
+      />
 
       {/* Success message */}
       {showSuccess && (
@@ -565,67 +567,47 @@ export default function AttendanceScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
   container: {
     flex: 1,
-    padding: 16,
-  },
-  header: {
-    padding: 16,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    marginTop: 4,
+    padding: spacing.screenPadding,
   },
   successMessage: {
     position: "absolute",
     top: 90,
-    left: 20,
-    right: 20,
+    left: spacing.screenPadding,
+    right: spacing.screenPadding,
     zIndex: 100,
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 5,
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
+    ...createShadow(2),
   },
   successText: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     fontWeight: "600",
     fontSize: 14,
   },
   calendarContainer: {
-    borderRadius: 16,
+    borderRadius: spacing.borderRadius.large,
     overflow: "hidden",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    padding: 16,
+    marginBottom: spacing.md,
+    ...createShadow(1),
+    padding: spacing.md,
   },
   calendarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   calendarNavButton: {
-    padding: 8,
+    padding: spacing.sm,
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -638,8 +620,8 @@ const styles = StyleSheet.create({
   },
   weekdayHeader: {
     flexDirection: "row",
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.05)",
   },
@@ -662,7 +644,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.large,
   },
   dayText: {
     fontSize: 14,
@@ -676,7 +658,7 @@ const styles = StyleSheet.create({
     bottom: 4,
   },
   dateInfo: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
     alignItems: "center",
   },
   dateText: {
@@ -686,20 +668,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   subjectCard: {
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.md,
+    ...createShadow(1),
     overflow: "hidden",
   },
   subjectHeader: {
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   subjectName: {
@@ -707,12 +685,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   attendanceOptions: {
-    padding: 16,
+    padding: spacing.md,
   },
   attendanceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   typeContainer: {
     width: 80,
@@ -729,58 +707,54 @@ const styles = StyleSheet.create({
   statusButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.borderRadius.large,
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: spacing.xs,
     justifyContent: "center",
   },
   statusText: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     fontWeight: "500",
   },
   saveButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 10,
+    borderRadius: spacing.borderRadius.large,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
-    marginBottom: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+    ...createShadow(2),
   },
   saveButtonText: {
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   loadingContainer: {
-    padding: 32,
+    padding: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    marginTop: 16,
+    marginTop: spacing.md,
     fontSize: 16,
   },
   emptyState: {
-    padding: 32,
-    borderRadius: 12,
+    padding: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
+    marginTop: spacing.md,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   emptyStateText: {
     fontSize: 16,

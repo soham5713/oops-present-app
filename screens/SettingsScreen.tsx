@@ -24,7 +24,6 @@ import { useAttendance } from "../context/AttendanceContext"
 import { useTheme } from "../context/ThemeContext"
 import { useUser } from "../context/UserContext"
 import { colors } from "../utils/theme"
-import { LinearGradient } from "expo-linear-gradient"
 import { doc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { updateProfile, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
@@ -32,11 +31,15 @@ import { Divisions, getBatches } from "../timetable"
 import * as Print from "expo-print"
 // Add this import at the top with the other imports
 import { useToast } from "../context/ToastContext"
+import Header from "../components/Header"
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
 
 export default function SettingsScreen() {
+  const { userProfile } = useUser()
   const { attendees, attendanceRecords } = useAttendance()
   const { isDarkMode, toggleTheme } = useTheme()
-  const { user, userProfile, logOut, updateUserProfile } = useUser()
+  const { user, logOut, updateUserProfile } = useUser()
   const { showToast } = useToast()
 
   const theme = isDarkMode ? colors.dark : colors.light
@@ -88,7 +91,10 @@ export default function SettingsScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
 
       if (status !== "granted") {
-        Alert.alert("Permission Required", "Sorry, we need camera roll permissions to update your profile picture.")
+        showToast({
+          message: "Sorry, we need camera roll permissions to update your profile picture.",
+          type: "error",
+        })
         return
       }
 
@@ -110,10 +116,16 @@ export default function SettingsScreen() {
             await updateProfile(user, {
               photoURL: result.assets[0].uri,
             })
-            Alert.alert("Success", "Profile picture updated successfully")
+            showToast({
+              message: "Profile picture updated successfully",
+              type: "success",
+            })
           } catch (error) {
             console.error("Error updating profile picture:", error)
-            Alert.alert("Error", "Failed to update profile picture")
+            showToast({
+              message: "Failed to update profile picture",
+              type: "error",
+            })
           } finally {
             setIsLoading(false)
           }
@@ -121,7 +133,10 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error picking image:", error)
-      Alert.alert("Error", "Failed to pick image")
+      showToast({
+        message: "Failed to pick image",
+        type: "error",
+      })
     }
   }
 
@@ -136,10 +151,16 @@ export default function SettingsScreen() {
       })
 
       setEditMode(false)
-      Alert.alert("Success", "Profile updated successfully")
+      showToast({
+        message: "Profile updated successfully",
+        type: "success",
+      })
     } catch (error) {
       console.error("Error updating profile:", error)
-      Alert.alert("Error", "Failed to update profile")
+      showToast({
+        message: "Failed to update profile",
+        type: "error",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -156,10 +177,16 @@ export default function SettingsScreen() {
         batch: selectedBatch,
       })
 
-      Alert.alert("Success", "Division and batch updated successfully")
+      showToast({
+        message: "Division and batch updated successfully",
+        type: "success",
+      })
     } catch (error) {
       console.error("Error updating division and batch:", error)
-      Alert.alert("Error", "Failed to update division and batch")
+      showToast({
+        message: "Failed to update division and batch",
+        type: "error",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -471,10 +498,16 @@ export default function SettingsScreen() {
               // Clear local storage
               await AsyncStorage.clear()
 
-              Alert.alert("Success", "All data has been cleared. Please restart the app.")
+              showToast({
+                message: "All data has been cleared. Please restart the app.",
+                type: "success",
+              })
             } catch (error) {
               console.error("Error clearing data:", error)
-              Alert.alert("Error", "Failed to clear data")
+              showToast({
+                message: "Failed to clear data",
+                type: "error",
+              })
             } finally {
               setIsLoading(false)
             }
@@ -512,10 +545,16 @@ export default function SettingsScreen() {
       // Clear local storage
       await AsyncStorage.clear()
 
-      Alert.alert("Account Deleted", "Your account has been permanently deleted.")
+      showToast({
+        message: "Your account has been permanently deleted.",
+        type: "success",
+      })
     } catch (error) {
       console.error("Error deleting account:", error)
-      Alert.alert("Error", "Failed to delete account. Please check your password and try again.")
+      showToast({
+        message: "Failed to delete account. Please check your password and try again.",
+        type: "error",
+      })
     } finally {
       setIsLoading(false)
       setShowDeleteAccountModal(false)
@@ -538,7 +577,10 @@ export default function SettingsScreen() {
               await logOut()
             } catch (error) {
               console.error("Error logging out:", error)
-              Alert.alert("Error", "Failed to log out")
+              showToast({
+                message: "Failed to log out",
+                type: "error",
+              })
             }
           },
         },
@@ -549,12 +591,12 @@ export default function SettingsScreen() {
 
   // Open email support
   const openEmailSupport = () => {
-    Linking.openURL("mailto:support@attendancetracker.com?subject=Support%20Request")
+    Linking.openURL("mailto:bhosalesoham5713@gmail.com?subject=Support%20Request")
   }
 
   // Open website
   const openWebsite = () => {
-    Linking.openURL("https://attendancetracker.com")
+    Linking.openURL("https://oops-present.vercel.app")
   }
 
   // Render the delete account modal
@@ -711,77 +753,75 @@ export default function SettingsScreen() {
   )
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* In the header section */}
-      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
-        <Text style={[styles.headerTitle, { color: theme.headerText }]}>Oops Present</Text>
-      </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <Header
+        title="Oops Present"
+        subtitle={userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Settings"}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
-        <View style={styles.profileCardContainer}>
-          <LinearGradient
-            colors={isDarkMode ? ["#1f2937", "#111827"] : ["#4f46e5", "#4338ca"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.profileCardGradient}
-          >
-            <View style={styles.profileContent}>
-              <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.profileImage} />
-                ) : (
-                  <View
-                    style={[styles.profileImagePlaceholder, { backgroundColor: isDarkMode ? "#374151" : "#6366f1" }]}
-                  >
-                    <Text style={styles.profileImageText}>
-                      {user?.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
-                    </Text>
-                  </View>
-                )}
-                <View style={[styles.editImageButton, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="camera" size={14} color="white" />
+        <View style={[styles.profileCardContainer, { backgroundColor: theme.card }]}>
+          <View style={styles.profileContent}>
+            <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.profileImage} />
+              ) : (
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: theme.primary }]}>
+                  <Text style={styles.profileImageText}>
+                    {user?.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+                  </Text>
                 </View>
-              </TouchableOpacity>
-
-              <View style={styles.profileInfo}>
-                {editMode ? (
-                  <TextInput
-                    style={[
-                      styles.nameInput,
-                      {
-                        color: "white",
-                        borderColor: "rgba(255,255,255,0.3)",
-                        backgroundColor: "rgba(255,255,255,0.1)",
-                      },
-                    ]}
-                    value={displayName}
-                    onChangeText={setDisplayName}
-                    placeholder="Enter your name"
-                    placeholderTextColor="rgba(255,255,255,0.6)"
-                  />
-                ) : (
-                  <Text style={styles.profileName}>{user?.displayName || "User"}</Text>
-                )}
-                <Text style={styles.profileEmail}>{user?.email}</Text>
-
-                {editMode ? (
-                  <TouchableOpacity style={styles.saveButton} onPress={saveProfileChanges} disabled={isLoading}>
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>Save Changes</Text>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.editProfileButton} onPress={() => setEditMode(true)}>
-                    <Ionicons name="create-outline" size={16} color="white" />
-                    <Text style={styles.editProfileText}>Edit Profile</Text>
-                  </TouchableOpacity>
-                )}
+              )}
+              <View style={[styles.editImageButton, { backgroundColor: theme.primary }]}>
+                <Ionicons name="camera" size={14} color="white" />
               </View>
+            </TouchableOpacity>
+
+            <View style={styles.profileInfo}>
+              {editMode ? (
+                <TextInput
+                  style={[
+                    styles.nameInput,
+                    {
+                      color: theme.text,
+                      borderColor: theme.border,
+                      backgroundColor: theme.background,
+                    },
+                  ]}
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  placeholder="Enter your name"
+                  placeholderTextColor={theme.secondaryText}
+                />
+              ) : (
+                <Text style={[styles.profileName, { color: theme.text }]}>{user?.displayName || "User"}</Text>
+              )}
+              <Text style={[styles.profileEmail, { color: theme.secondaryText }]}>{user?.email}</Text>
+
+              {editMode ? (
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: theme.primary }]}
+                  onPress={saveProfileChanges}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.editProfileButton, { backgroundColor: theme.primary + "20" }]}
+                  onPress={() => setEditMode(true)}
+                >
+                  <Ionicons name="create-outline" size={16} color={theme.primary} />
+                  <Text style={[styles.editProfileText, { color: theme.primary }]}>Edit Profile</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
         {/* Preferences Section */}
@@ -931,12 +971,13 @@ export default function SettingsScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
   header: {
-    padding: 16,
+    padding: spacing.md,
   },
   headerTitle: {
     fontSize: 20,
@@ -946,19 +987,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   profileCardContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 24,
-    borderRadius: 20,
-    overflow: "hidden",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  profileCardGradient: {
-    padding: 20,
+    margin: spacing.screenPadding,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.lg,
+    ...createShadow(1),
   },
   profileContent: {
     flexDirection: "row",
@@ -971,8 +1003,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.8)",
+    borderWidth: 2,
   },
   profileImagePlaceholder: {
     width: 80,
@@ -980,8 +1011,8 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.8)",
+    borderWidth: 2,
+    borderColor: "white",
   },
   profileImageText: {
     color: "white",
@@ -1001,49 +1032,44 @@ const styles = StyleSheet.create({
     borderColor: "white",
   },
   profileInfo: {
-    marginLeft: 20,
+    marginLeft: spacing.xl,
     flex: 1,
   },
   profileName: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "white",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   profileEmail: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   nameInput: {
     fontSize: 18,
     fontWeight: "500",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: spacing.sm,
   },
   editProfileButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: spacing.borderRadius.large,
     alignSelf: "flex-start",
   },
   editProfileText: {
-    color: "white",
-    marginLeft: 4,
+    marginLeft: spacing.xs,
     fontWeight: "500",
     fontSize: 13,
   },
   saveButton: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.borderRadius.large,
     alignSelf: "flex-start",
   },
   saveButtonText: {
@@ -1052,27 +1078,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   section: {
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.screenPadding,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 12,
-    marginLeft: 4,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   settingCard: {
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: spacing.borderRadius.large,
+    overflow: "hidden",
+    ...createShadow(1),
   },
-  settingRow: {
+  settingButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.md,
   },
   settingIconContainer: {
     width: 40,
@@ -1081,7 +1104,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(79, 70, 229, 0.1)",
-    marginRight: 16,
+    marginRight: spacing.md,
   },
   settingInfo: {
     flex: 1,
@@ -1089,59 +1112,54 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   settingDescription: {
     fontSize: 14,
   },
   divider: {
     height: 1,
-    marginHorizontal: 16,
-  },
-  settingButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
+    marginHorizontal: spacing.md,
   },
   aboutRow: {
-    padding: 16,
+    padding: spacing.md,
   },
   appName: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   appVersion: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   appDescription: {
     fontSize: 14,
     lineHeight: 20,
   },
   accountActions: {
-    padding: 16,
-    marginBottom: 32,
+    padding: spacing.screenPadding,
+    marginBottom: spacing.xl,
   },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.md,
   },
   logoutButtonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   deleteAccountButton: {
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.large,
     borderWidth: 1,
   },
   deleteAccountButtonText: {
@@ -1154,15 +1172,16 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: spacing.borderRadius.xl,
+    borderTopRightRadius: spacing.borderRadius.xl,
     maxHeight: "80%",
+    overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
@@ -1170,24 +1189,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   modalBody: {
-    padding: 16,
+    padding: spacing.md,
   },
   modalText: {
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   modalLabel: {
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: spacing.borderRadius.large,
+    paddingHorizontal: spacing.sm,
   },
   passwordInput: {
     flex: 1,
@@ -1196,16 +1215,16 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: "row",
-    padding: 16,
+    padding: spacing.md,
     borderTopWidth: 1,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     alignItems: "center",
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.large,
     borderWidth: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   modalButtonText: {
     fontSize: 16,
@@ -1213,10 +1232,10 @@ const styles = StyleSheet.create({
   },
   modalDeleteButton: {
     flex: 2,
-    paddingVertical: 12,
+    paddingVertical: spacing.sm,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.large,
   },
   modalDeleteButtonText: {
     color: "white",
@@ -1230,10 +1249,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   modalItemText: {
     fontSize: 16,
+  },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
   },
 })

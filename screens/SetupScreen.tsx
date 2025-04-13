@@ -19,6 +19,9 @@ import { useTheme } from "../context/ThemeContext"
 import { colors } from "../utils/theme"
 import { Divisions, getBatches } from "../timetable"
 
+// Import the spacing utilities
+import { spacing, createShadow } from "../utils/spacing"
+
 export default function SetupScreen() {
   const { updateUserProfile } = useUser()
   const { isDarkMode } = useTheme()
@@ -305,18 +308,19 @@ export default function SetupScreen() {
   )
 }
 
+// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
   container: {
     flexGrow: 1,
-    padding: 20,
+    padding: spacing.screenPadding,
     justifyContent: "center",
   },
   header: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: spacing.xl,
   },
   iconContainer: {
     width: 120,
@@ -324,33 +328,29 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    marginTop: 16,
+    marginTop: spacing.md,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   card: {
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: spacing.borderRadius.large,
+    padding: spacing.xl,
+    ...createShadow(1),
   },
   stepIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   stepCircle: {
     width: 30,
@@ -366,29 +366,29 @@ const styles = StyleSheet.create({
   stepLine: {
     flex: 1,
     height: 2,
-    marginHorizontal: 8,
+    marginHorizontal: spacing.sm,
   },
   stepContent: {
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
   },
   stepTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   stepDescription: {
     fontSize: 15,
-    marginBottom: 24,
+    marginBottom: spacing.xl,
     lineHeight: 22,
   },
   customDropdown: {
     borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 24,
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.xl,
     height: 54,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
     position: "relative",
   },
   dropdownText: {
@@ -398,60 +398,52 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 12,
+    borderRadius: spacing.borderRadius.large,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...createShadow(1),
   },
   buttonText: {
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   buttonGroup: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   secondaryButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 12,
+    borderRadius: spacing.borderRadius.large,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
   },
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: "bold",
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   completeButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: 12,
+    borderRadius: spacing.borderRadius.large,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
     flex: 1,
-    marginLeft: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    marginLeft: spacing.sm,
+    ...createShadow(2),
   },
   completeButtonText: {
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   loadingContainer: {
     flexDirection: "row",
@@ -466,13 +458,13 @@ const styles = StyleSheet.create({
     width: 40,
     justifyContent: "center",
     alignItems: "center",
-    borderTopRightRadius: 12,
-    borderBottomRightRadius: 12,
+    borderTopRightRadius: spacing.borderRadius.large,
+    borderBottomRightRadius: spacing.borderRadius.large,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   modalOverlay: {
     flex: 1,
@@ -482,8 +474,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "100%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: spacing.borderRadius.xl,
+    borderTopRightRadius: spacing.borderRadius.xl,
     overflow: "hidden",
     maxHeight: "80%",
   },
@@ -491,7 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   modalTitle: {
@@ -502,7 +494,7 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   dropdownItem: {
-    padding: 16,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   dropdownItemText: {
