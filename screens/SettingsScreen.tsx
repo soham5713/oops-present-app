@@ -24,16 +24,21 @@ import { useAttendance } from "../context/AttendanceContext"
 import { useTheme } from "../context/ThemeContext"
 import { useUser } from "../context/UserContext"
 import { colors } from "../utils/theme"
-import { doc, deleteDoc, collection, getDocs, query, where } from "firebase/firestore"
+import { doc, deleteDoc, collection, getDocs, query, where, setDoc, getDoc } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { updateProfile, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
-import { Divisions, getBatches } from "../timetable"
+import { Divisions, getBatches, AllSubjects } from "../timetable"
 import * as Print from "expo-print"
 // Add this import at the top with the other imports
 import { useToast } from "../context/ToastContext"
 import Header from "../components/Header"
 // Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
+// Add these imports at the top with the other imports
+import { endOfMonth, format, parseISO } from "date-fns"
+// Add these imports for the new components
+import DatePicker from "../components/DatePicker"
+import MonthPicker from "../components/MonthPicker"
 
 export default function SettingsScreen() {
   const { userProfile } = useUser()
@@ -58,6 +63,27 @@ export default function SettingsScreen() {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+
+  // New state for attendance import
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [selectedSubject, setSelectedSubject] = useState("")
+  const [theoryTotal, setTheoryTotal] = useState("")
+  const [theoryAttended, setTheoryAttended] = useState("")
+  const [labTotal, setLabTotal] = useState("")
+  const [labAttended, setLabAttended] = useState("")
+  const [importDate, setImportDate] = useState(new Date().toISOString().split("T")[0])
+  const [isSavingImport, setIsSavingImport] = useState(false)
+  const [subjectModalVisible, setSubjectModalVisible] = useState(false)
+  // Add these state variables in the SettingsScreen component
+  const [showSemesterStartModal, setShowSemesterStartModal] = useState(false)
+  const [showSemesterEndModal, setShowSemesterEndModal] = useState(false)
+  const [semesterStartDate, setSemesterStartDate] = useState("2025-01-20")
+  const [semesterEndDate, setSemesterEndDate] = useState("2025-05-16")
+  const [tempDate, setTempDate] = useState("")
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false)
+  const [datePickerMode, setDatePickerMode] = useState<"start" | "end">("start")
+  const [showMonthPickerModal, setShowMonthPickerModal] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState(new Date())
 
   // Load user data
   useEffect(() => {
@@ -84,6 +110,32 @@ export default function SettingsScreen() {
       }
     }
   }, [selectedDivision])
+
+  // Add this useEffect to load semester dates from Firebase
+  useEffect(() => {
+    if (user?.uid) {
+      const loadSemesterDates = async () => {
+        try {
+          const userDocRef = doc(db, "users", user.uid)
+          const userDoc = await getDoc(userDocRef)
+
+          if (userDoc.exists()) {
+            const data = userDoc.data()
+            if (data.semesterStartDate) {
+              setSemesterStartDate(data.semesterStartDate)
+            }
+            if (data.semesterEndDate) {
+              setSemesterEndDate(data.semesterEndDate)
+            }
+          }
+        } catch (error) {
+          console.error("Error loading semester dates:", error)
+        }
+      }
+
+      loadSemesterDates()
+    }
+  }, [user?.uid])
 
   // Pick profile image
   const pickImage = async () => {
@@ -192,6 +244,196 @@ export default function SettingsScreen() {
     }
   }
 
+  // Add this function to save semester dates to Firebase
+  const saveSemesterDates = async () => {
+    if (!user?.uid) return
+
+    setIsLoading(true)
+    try {
+      await updateUserProfile({
+        semesterStartDate,
+        semesterEndDate,
+      })
+
+      showToast({
+        message: "Semester dates updated successfully",
+        type: "success",
+      })
+    } catch (error) {
+      console.error("Error saving semester dates:", error)
+      showToast({
+        message: "Failed to update semester dates",
+        type: "error",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Update the saveImportedAttendance function to show more detailed success message
+  const saveImportedAttendance = async () => {
+    if (!user?.uid || !selectedSubject) {
+      showToast({
+        message: "Please select a subject",
+        type: "warning",
+      })
+      return
+    }
+
+    // Validate inputs
+    const theoryTotalNum = Number.parseInt(theoryTotal)
+    const theoryAttendedNum = Number.parseInt(theoryAttended)
+    const labTotalNum = Number.parseInt(labTotal)
+    const labAttendedNum = Number.parseInt(labAttended)
+
+    if (
+      isNaN(theoryTotalNum) ||
+      isNaN(theoryAttendedNum) ||
+      isNaN(labTotalNum) ||
+      isNaN(labAttendedNum) ||
+      theoryTotalNum < 0 ||
+      theoryAttendedNum < 0 ||
+      labTotalNum < 0 ||
+      labAttendedNum < 0
+    ) {
+      showToast({
+        message: "Please enter valid numbers for all fields",
+        type: "error",
+      })
+      return
+    }
+
+    if (theoryAttendedNum > theoryTotalNum) {
+      showToast({
+        message: "Attended lectures cannot be more than total lectures",
+        type: "error",
+      })
+      return
+    }
+
+    if (labAttendedNum > labTotalNum) {
+      showToast({
+        message: "Attended labs cannot be more than total labs",
+        type: "error",
+      })
+      return
+    }
+
+    // Calculate the last day of the selected month
+    const lastDayOfMonth = endOfMonth(selectedMonth)
+    const importDateStr = format(lastDayOfMonth, "yyyy-MM-dd")
+
+    // Validate that the import date is after semester start date
+    if (importDateStr < semesterStartDate) {
+      showToast({
+        message: "Import date must be after semester start date",
+        type: "error",
+      })
+      return
+    }
+
+    setIsSavingImport(true)
+    try {
+      // Save to Firestore
+      const importedDataRef = doc(db, "importedAttendance", `${user.uid}_${selectedSubject}`)
+      await setDoc(importedDataRef, {
+        userId: user.uid,
+        subject: selectedSubject,
+        theoryTotal: theoryTotalNum,
+        theoryAttended: theoryAttendedNum,
+        labTotal: labTotalNum,
+        labAttended: labAttendedNum,
+        importDate: importDateStr,
+        updatedAt: new Date().toISOString(),
+      })
+
+      // Calculate percentages for the success message
+      const theoryPercentage = theoryTotalNum > 0 ? Math.round((theoryAttendedNum / theoryTotalNum) * 100) : 0
+      const labPercentage = labTotalNum > 0 ? Math.round((labAttendedNum / labTotalNum) * 100) : 0
+
+      showToast({
+        message: `${selectedSubject} data imported: Theory ${theoryPercentage}%, Lab ${labPercentage}%`,
+        type: "success",
+        duration: 4000,
+      })
+
+      // Reset form and close modal
+      setTheoryTotal("")
+      setTheoryAttended("")
+      setLabTotal("")
+      setLabAttended("")
+      setShowImportModal(false)
+    } catch (error) {
+      console.error("Error saving imported attendance:", error)
+      showToast({
+        message: "Failed to import attendance data",
+        type: "error",
+      })
+    } finally {
+      setIsSavingImport(false)
+    }
+  }
+
+  // Add this function to handle date selection
+  const handleDateSelection = (date: Date) => {
+    const formattedDate = format(date, "yyyy-MM-dd")
+
+    if (datePickerMode === "start") {
+      if (formattedDate > semesterEndDate) {
+        showToast({
+          message: "Start date cannot be after end date",
+          type: "error",
+        })
+        return
+      }
+      setSemesterStartDate(formattedDate)
+    } else {
+      if (formattedDate < semesterStartDate) {
+        showToast({
+          message: "End date cannot be before start date",
+          type: "error",
+        })
+        return
+      }
+      setSemesterEndDate(formattedDate)
+    }
+
+    setIsDatePickerVisible(false)
+    saveSemesterDates()
+  }
+
+  // Add this function to format dates for display
+  const formatDateForDisplay = (dateString: string) => {
+    try {
+      const date = parseISO(dateString)
+      return format(date, "MMMM d, yyyy")
+    } catch (error) {
+      return dateString
+    }
+  }
+
+  // Add this function to handle month selection for import
+  const handleMonthSelection = (month: Date) => {
+    setSelectedMonth(month)
+    setShowMonthPickerModal(false)
+  }
+
+  // Add these functions to navigate between months in the month picker
+  const goToPreviousMonth = () => {
+    const date = new Date(selectedMonth)
+    date.setMonth(date.getMonth() - 1)
+    setSelectedMonth(date)
+  }
+
+  const goToNextMonth = () => {
+    const date = new Date(selectedMonth)
+    date.setMonth(date.getMonth() + 1)
+    const currentDate = new Date()
+    if (date <= currentDate) {
+      setSelectedMonth(date)
+    }
+  }
+
   // Generate HTML for PDF report
   const generateAttendanceReportHTML = async () => {
     if (!user?.uid) return ""
@@ -238,6 +480,32 @@ export default function SettingsScreen() {
             }
           })
         }
+      })
+
+      // Fetch imported attendance data
+      const importedDataQuery = query(collection(db, "importedAttendance"), where("userId", "==", user.uid))
+      const importedSnapshot = await getDocs(importedDataQuery)
+
+      // Add imported data to subject stats
+      importedSnapshot.forEach((doc) => {
+        const data = doc.data()
+        const subject = data.subject
+
+        if (!subjectStats[subject]) {
+          subjectStats[subject] = {
+            subject,
+            theoryTotal: 0,
+            theoryPresent: 0,
+            labTotal: 0,
+            labPresent: 0,
+          }
+        }
+
+        // Add imported data to totals
+        subjectStats[subject].theoryTotal += data.theoryTotal || 0
+        subjectStats[subject].theoryPresent += data.theoryAttended || 0
+        subjectStats[subject].labTotal += data.labTotal || 0
+        subjectStats[subject].labPresent += data.labAttended || 0
       })
 
       // Calculate percentages
@@ -409,9 +677,6 @@ export default function SettingsScreen() {
   }
 
   // Export data to PDF
-  // Then replace all Alert.alert calls with showToast
-  // For example, in the exportData function:
-
   const exportData = async () => {
     try {
       setIsExporting(true)
@@ -493,6 +758,13 @@ export default function SettingsScreen() {
 
                 const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref))
                 await Promise.all(deletePromises)
+
+                // Delete imported attendance data
+                const importedQuery = query(collection(db, "importedAttendance"), where("userId", "==", user.uid))
+                const importedSnapshot = await getDocs(importedQuery)
+
+                const deleteImportedPromises = importedSnapshot.docs.map((doc) => deleteDoc(doc.ref))
+                await Promise.all(deleteImportedPromises)
               }
 
               // Clear local storage
@@ -538,6 +810,13 @@ export default function SettingsScreen() {
 
       const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref))
       await Promise.all(deletePromises)
+
+      // Delete imported attendance data
+      const importedQuery = query(collection(db, "importedAttendance"), where("userId", "==", user.uid))
+      const importedSnapshot = await getDocs(importedQuery)
+
+      const deleteImportedPromises = importedSnapshot.docs.map((doc) => deleteDoc(doc.ref))
+      await Promise.all(deleteImportedPromises)
 
       // Delete user account
       await deleteUser(user)
@@ -752,6 +1031,191 @@ export default function SettingsScreen() {
     </Modal>
   )
 
+  // Render the import attendance modal
+  const renderImportAttendanceModal = () => (
+    <Modal
+      visible={showImportModal}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setShowImportModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Import Attendance Data</Text>
+            <TouchableOpacity onPress={() => setShowImportModal(false)}>
+              <Ionicons name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <Text style={[styles.modalText, { color: theme.text }]}>
+              Enter your existing attendance data to continue tracking from where you left off.
+            </Text>
+
+            <Text style={[styles.modalLabel, { color: theme.text }]}>Subject</Text>
+            <TouchableOpacity
+              style={[styles.subjectSelector, { backgroundColor: theme.background, borderColor: theme.border }]}
+              onPress={() => {
+                // Show subject selection modal instead of Alert
+                setSubjectModalVisible(true)
+              }}
+            >
+              <Text style={[styles.subjectSelectorText, { color: selectedSubject ? theme.text : theme.secondaryText }]}>
+                {selectedSubject || "Select a subject"}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+
+            <View style={styles.importRow}>
+              <View style={styles.importColumn}>
+                <Text style={[styles.modalLabel, { color: theme.text }]}>Theory Attended</Text>
+                <TextInput
+                  style={[
+                    styles.importInput,
+                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                  value={theoryAttended}
+                  onChangeText={setTheoryAttended}
+                />
+              </View>
+              <View style={styles.importColumn}>
+                <Text style={[styles.modalLabel, { color: theme.text }]}>Theory Total</Text>
+                <TextInput
+                  style={[
+                    styles.importInput,
+                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                  value={theoryTotal}
+                  onChangeText={setTheoryTotal}
+                />
+              </View>
+            </View>
+
+            <View style={styles.importRow}>
+            <View style={styles.importColumn}>
+                <Text style={[styles.modalLabel, { color: theme.text }]}>Lab Attended</Text>
+                <TextInput
+                  style={[
+                    styles.importInput,
+                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                  value={labAttended}
+                  onChangeText={setLabAttended}
+                />
+              </View>
+              <View style={styles.importColumn}>
+                <Text style={[styles.modalLabel, { color: theme.text }]}>Lab Total</Text>
+                <TextInput
+                  style={[
+                    styles.importInput,
+                    { backgroundColor: theme.background, color: theme.text, borderColor: theme.border },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={theme.secondaryText}
+                  keyboardType="number-pad"
+                  value={labTotal}
+                  onChangeText={setLabTotal}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.modalLabel, { color: theme.text }]}>Import Month</Text>
+            <TouchableOpacity
+              style={[styles.subjectSelector, { backgroundColor: theme.background, borderColor: theme.border }]}
+              onPress={() => setShowMonthPickerModal(true)}
+            >
+              <Text style={[styles.subjectSelectorText, { color: theme.text }]}>
+                {format(selectedMonth, "MMMM yyyy")}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+            <Text style={[styles.importNote, { color: theme.secondaryText }]}>
+              * Attendance will be imported up to the last day of the selected month
+            </Text>
+          </ScrollView>
+
+          <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+            <TouchableOpacity
+              style={[styles.modalButton, { borderColor: theme.border }]}
+              onPress={() => setShowImportModal(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: theme.text }]}>Cancel</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: selectedSubject ? theme.primary : theme.primary + "80",
+                  opacity: selectedSubject ? 1 : 0.8,
+                },
+              ]}
+              onPress={saveImportedAttendance}
+              disabled={isSavingImport || !selectedSubject}
+            >
+              {isSavingImport ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Data</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+
+  // Add this new function to render the subject selection modal
+  const renderSubjectSelectionModal = () => (
+    <Modal
+      visible={subjectModalVisible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setSubjectModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Select Subject</Text>
+            <TouchableOpacity onPress={() => setSubjectModalVisible(false)}>
+              <Ionicons name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalList}>
+            {AllSubjects.map((subject) => (
+              <TouchableOpacity
+                key={subject}
+                style={[
+                  styles.modalItem,
+                  { borderBottomColor: theme.border },
+                  selectedSubject === subject && { backgroundColor: theme.primary + "20" },
+                ]}
+                onPress={() => {
+                  setSelectedSubject(subject)
+                  setSubjectModalVisible(false)
+                }}
+              >
+                <Text style={[styles.modalItemText, { color: theme.text }]}>{subject}</Text>
+                {selectedSubject === subject && <Ionicons name="checkmark" size={20} color={theme.primary} />}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  )
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
       <Header
@@ -869,6 +1333,22 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Data Management</Text>
           <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
+            {/* Import Attendance Data Button */}
+            <TouchableOpacity style={styles.settingButton} onPress={() => setShowImportModal(true)}>
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="cloud-upload-outline" size={22} color={theme.primary} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.text }]}>Import Attendance Data</Text>
+                <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
+                  Add your existing attendance records
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
             <TouchableOpacity style={styles.settingButton} onPress={exportData} disabled={isExporting}>
               <View style={styles.settingIconContainer}>
                 <Ionicons name="document-text-outline" size={22} color={theme.primary} />
@@ -896,6 +1376,54 @@ export default function SettingsScreen() {
                 <Text style={[styles.settingTitle, { color: theme.error }]}>Clear All Data</Text>
                 <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
                   Delete all attendees and records
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Semester Dates Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Semester Dates</Text>
+          <View style={[styles.settingCard, { backgroundColor: theme.card }]}>
+            <TouchableOpacity
+              style={styles.settingButton}
+              onPress={() => {
+                setTempDate(semesterStartDate)
+                setDatePickerMode("start")
+                setIsDatePickerVisible(true)
+              }}
+            >
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="calendar-outline" size={22} color={theme.primary} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.text }]}>Semester Start Date</Text>
+                <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
+                  {formatDateForDisplay(semesterStartDate)}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <TouchableOpacity
+              style={styles.settingButton}
+              onPress={() => {
+                setTempDate(semesterEndDate)
+                setDatePickerMode("end")
+                setIsDatePickerVisible(true)
+              }}
+            >
+              <View style={styles.settingIconContainer}>
+                <Ionicons name="calendar-outline" size={22} color={theme.primary} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingTitle, { color: theme.text }]}>Semester End Date</Text>
+                <Text style={[styles.settingDescription, { color: theme.secondaryText }]}>
+                  {formatDateForDisplay(semesterEndDate)}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={theme.secondaryText} />
@@ -966,6 +1494,28 @@ export default function SettingsScreen() {
         {renderDeleteAccountModal()}
         {renderDivisionModal()}
         {renderBatchModal()}
+        {renderImportAttendanceModal()}
+        {renderSubjectSelectionModal()}
+        {/* Date Picker Modal */}
+        <DatePicker
+          visible={isDatePickerVisible}
+          onClose={() => setIsDatePickerVisible(false)}
+          onSelectDate={(date) => handleDateSelection(date)}
+          initialDate={parseISO(datePickerMode === "start" ? semesterStartDate : semesterEndDate)}
+          minDate={datePickerMode === "end" ? parseISO(semesterStartDate) : undefined}
+          maxDate={datePickerMode === "start" ? parseISO(semesterEndDate) : undefined}
+          title={datePickerMode === "start" ? "Select Semester Start Date" : "Select Semester End Date"}
+        />
+
+        {/* Month Picker Modal */}
+        <MonthPicker
+          visible={showMonthPickerModal}
+          onClose={() => setShowMonthPickerModal(false)}
+          onSelectMonth={handleMonthSelection}
+          initialDate={selectedMonth}
+          minDate={parseISO(semesterStartDate)}
+          title="Select Import Month"
+        />
       </ScrollView>
     </SafeAreaView>
   )
@@ -1259,5 +1809,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.md,
+  },
+  subjectSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.large,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  subjectSelectorText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  importRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  importColumn: {
+    flex: 1,
+    marginHorizontal: spacing.xs,
+  },
+  importInput: {
+    height: 48,
+    borderWidth: 1,
+    borderRadius: spacing.borderRadius.large,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+  },
+  importNote: {
+    fontSize: 12,
+    fontStyle: "italic",
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
 })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Animated,
-  Easing,
   RefreshControl,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
@@ -24,13 +22,16 @@ import { getAttendanceByDate, getAttendanceByDateRange, type AttendanceRecord } 
 import { AllSubjects } from "../timetable"
 import { BarChart, LineChart } from "react-native-chart-kit"
 import { LinearGradient } from "expo-linear-gradient"
-import { collection, query, where, getDocs } from "firebase/firestore"
+// Add import for getDoc and doc
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { SafeAreaView } from "react-native-safe-area-context"
 import Header from "../components/Header"
 
 // Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
+// Add a new import for the AttendanceCalculator component
+import AttendanceCalculator from "../components/AttendanceCalculator"
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
@@ -45,6 +46,12 @@ type SubjectAttendance = {
   labPresent: number
   labPercentage: number
   color?: string
+  importedData?: {
+    theoryTotal: number
+    theoryAttended: number
+    labTotal: number
+    labAttended: number
+  }
 }
 
 // Define type for monthly data points
@@ -60,13 +67,6 @@ export default function HomeScreen() {
   const { user, userProfile } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
-
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(50)).current
-  const scaleAnim = useRef(new Animated.Value(0.9)).current
-  const spinAnim = useRef(new Animated.Value(0)).current
-  const progressAnim = useRef(new Animated.Value(0)).current
 
   // State for dashboard
   const [activeTab, setActiveTab] = useState("overall")
@@ -95,52 +95,17 @@ export default function HomeScreen() {
     "#FF595E",
   ]
 
-  // Spin animation for refresh icon
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  })
-
-  // Start animations when component mounts
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 800,
-        easing: Easing.elastic(1),
-        useNativeDriver: true,
-      }),
-    ]).start()
-  }, [])
-
-  // Animate progress bar based on overall attendance
-  useEffect(() => {
-    Animated.timing(progressAnim, {
-      toValue: overallTheoryAttendance / 100,
-      duration: 1500,
-      useNativeDriver: false,
-    }).start()
-  }, [overallTheoryAttendance])
+  // Add state for caching data to prevent unnecessary reloads
+  const [cachedOverallStats, setCachedOverallStats] = useState<SubjectAttendance[]>([])
+  const [cachedMonthlyStats, setCachedMonthlyStats] = useState<{ [key: string]: SubjectAttendance[] }>({})
+  const [cachedTrendData, setCachedTrendData] = useState<MonthlyDataPoint[]>([])
 
   // Load attendance statistics
-  useEffect(() => {
-    if (!user?.uid) return
-
-    loadAttendanceData()
-  }, [user?.uid, selectedMonth, activeTab])
-
   const loadAttendanceData = async () => {
     if (!user?.uid) return
+
+    if (activeTab === "monthly") {
+    }
 
     setIsLoading(true)
     setError(null)
@@ -149,21 +114,23 @@ export default function HomeScreen() {
       if (activeTab === "overall") {
         // For overall tab, fetch all attendance records directly from Firebase
         await loadOverallAttendance(user.uid)
-      } else {
-        // For monthly tab, fetch records for the selected month
+      } else if (activeTab === "monthly") {
+        // For monthly tab, always load fresh data
         await loadMonthlyAttendance(user.uid, selectedMonth)
       }
 
-      // Load trend data (last 6 months)
-      const trendData = await loadAttendanceTrend(user.uid)
-      setTrendData(trendData)
+      // Load trend data if not already loaded
+      if (trendData.length === 0) {
+        const newTrendData = await loadAttendanceTrend(user.uid)
+        setTrendData(newTrendData)
+      }
 
       // Count manual records
       const todayRecords = await getAttendanceByDate(user.uid, format(new Date(), "yyyy-MM-dd"))
       const manualCount = todayRecords.filter((record) => record.isManual || record.notes?.includes("[MANUAL]")).length
       setManualRecordsCount(manualCount)
     } catch (error) {
-      console.error("Error loading attendance data:", error)
+      console.error("[ERROR] Error loading attendance data:", error)
       if (error instanceof Error && error.toString().includes("requires an index")) {
         setError(
           "Firebase index required. Please follow the instructions in the console to create the necessary index.",
@@ -196,6 +163,12 @@ export default function HomeScreen() {
           labTotal: 0,
           labPresent: 0,
           labPercentage: 0,
+          importedData: {
+            theoryTotal: 0,
+            theoryAttended: 0,
+            labTotal: 0,
+            labAttended: 0,
+          },
         }
       })
 
@@ -223,6 +196,34 @@ export default function HomeScreen() {
           })
         }
       })
+
+      // Fetch and add imported attendance data
+      for (const subject of AllSubjects) {
+        try {
+          const importedDataRef = doc(db, "importedAttendance", `${userId}_${subject}`)
+          const importedDoc = await getDoc(importedDataRef)
+
+          if (importedDoc.exists()) {
+            const data = importedDoc.data()
+
+            // Add imported data to the stats
+            stats[subject].importedData = {
+              theoryTotal: data.theoryTotal || 0,
+              theoryAttended: data.theoryAttended || 0,
+              labTotal: data.labTotal || 0,
+              labAttended: data.labAttended || 0,
+            }
+
+            // Add imported data to totals
+            stats[subject].theoryTotal += data.theoryTotal || 0
+            stats[subject].theoryPresent += data.theoryAttended || 0
+            stats[subject].labTotal += data.labTotal || 0
+            stats[subject].labPresent += data.labAttended || 0
+          }
+        } catch (error) {
+          console.error(`Error fetching imported data for ${subject}:`, error)
+        }
+      }
 
       // Calculate percentages
       Object.values(stats).forEach((stat) => {
@@ -260,38 +261,59 @@ export default function HomeScreen() {
     }
   }
 
-  // Load monthly attendance
+  // Update the loadMonthlyAttendance function to exclude imported data for the current month
   const loadMonthlyAttendance = async (userId: string, month: Date) => {
     try {
+
+      // Clear any existing monthly stats first to prevent showing stale data
+      setMonthlyStats([])
+
       const monthStart = startOfMonth(month)
       const monthEnd = endOfMonth(month)
       const startDateStr = format(monthStart, "yyyy-MM-dd")
       const endDateStr = format(monthEnd, "yyyy-MM-dd")
 
+
       // Get records for specific date range
       const recordsByDate = await getAttendanceByDateRange(userId, startDateStr, endDateStr)
 
-      // Initialize stats for all subjects
-      const stats: { [key: string]: SubjectAttendance } = {}
+      // Check if there are any records for this month
+      const hasRecordsForMonth = Object.keys(recordsByDate).length > 0
 
-      AllSubjects.forEach((subject) => {
-        stats[subject] = {
-          subject,
-          theoryTotal: 0,
-          theoryPresent: 0,
-          theoryPercentage: 0,
-          labTotal: 0,
-          labPresent: 0,
-          labPercentage: 0,
-        }
-      })
+      // If no records exist for this month, set empty stats and return
+      if (!hasRecordsForMonth) {
+        setMonthlyStats([])
+        return
+      }
+
+      // Initialize stats for subjects that have records this month
+      const stats: { [key: string]: SubjectAttendance } = {}
 
       // Process all records for this month
       Object.values(recordsByDate).forEach((dateRecords) => {
         dateRecords.forEach((record) => {
-          if (!stats[record.subject]) {
-            // Skip if subject is not in our list
+          // Skip imported data
+          if (record.notes?.includes("[IMPORTED]")) {
             return
+          }
+
+          // Initialize subject stats if not already done
+          if (!stats[record.subject]) {
+            stats[record.subject] = {
+              subject: record.subject,
+              theoryTotal: 0,
+              theoryPresent: 0,
+              theoryPercentage: 0,
+              labTotal: 0,
+              labPresent: 0,
+              labPercentage: 0,
+              importedData: {
+                theoryTotal: 0,
+                theoryAttended: 0,
+                labTotal: 0,
+                labAttended: 0,
+              },
+            }
           }
 
           if (record.type === "theory") {
@@ -329,14 +351,18 @@ export default function HomeScreen() {
         }
       })
 
+
+      // Update state with the new stats
       setMonthlyStats(filteredStats)
     } catch (error) {
-      console.error("Error loading monthly attendance:", error)
+      console.error(`[ERROR] Error loading monthly attendance for ${format(month, "MMMM yyyy")}:`, error)
+      // Make sure to set empty stats on error to avoid showing stale data
+      setMonthlyStats([])
       throw error
     }
   }
 
-  // Load attendance trend data for the last 6 months
+  // Optimize the loadAttendanceTrend function to be more efficient
   const loadAttendanceTrend = async (userId: string): Promise<MonthlyDataPoint[]> => {
     try {
       const now = new Date()
@@ -351,62 +377,58 @@ export default function HomeScreen() {
       // Get attendance data for each month
       const trendData: MonthlyDataPoint[] = []
 
+      // Fetch all attendance data at once to reduce Firebase calls
+      const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", userId))
+      const querySnapshot = await getDocs(attendanceQuery)
+
+      // Store all records in memory for faster processing
+      const allRecords: { [date: string]: AttendanceRecord[] } = {}
+      querySnapshot.forEach((doc) => {
+        const data = doc.data()
+        if (data.date && data.records && Array.isArray(data.records)) {
+          allRecords[data.date] = data.records
+        }
+      })
+
+      // Process each month using the in-memory records
       for (const month of months) {
         const monthStart = startOfMonth(month)
         const monthEnd = endOfMonth(month)
         const startDateStr = format(monthStart, "yyyy-MM-dd")
         const endDateStr = format(monthEnd, "yyyy-MM-dd")
 
-        try {
-          // Use a simpler query that doesn't require a composite index
-          // Just query by userId and then filter the results in memory
-          const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", userId))
+        let theoryPresent = 0
+        let theoryTotal = 0
+        let labPresent = 0
+        let labTotal = 0
 
-          const querySnapshot = await getDocs(attendanceQuery)
-
-          let theoryPresent = 0
-          let theoryTotal = 0
-          let labPresent = 0
-          let labTotal = 0
-
-          querySnapshot.forEach((doc) => {
-            const data = doc.data()
-            // Check if the date is within our range
-            if (data.date && data.date >= startDateStr && data.date <= endDateStr) {
-              if (data.records && Array.isArray(data.records)) {
-                data.records.forEach((record: any) => {
-                  if (record.type === "theory") {
-                    theoryTotal++
-                    if (record.status === "present") {
-                      theoryPresent++
-                    }
-                  } else if (record.type === "lab") {
-                    labTotal++
-                    if (record.status === "present") {
-                      labPresent++
-                    }
-                  }
-                })
+        // Process records for this month
+        Object.entries(allRecords).forEach(([date, records]) => {
+          if (date >= startDateStr && date <= endDateStr) {
+            records.forEach((record: any) => {
+              if (record.type === "theory") {
+                theoryTotal++
+                if (record.status === "present") {
+                  theoryPresent++
+                }
+              } else if (record.type === "lab") {
+                labTotal++
+                if (record.status === "present") {
+                  labPresent++
+                }
               }
-            }
-          })
+            })
+          }
+        })
 
-          const theoryPercentage = theoryTotal > 0 ? Math.round((theoryPresent / theoryTotal) * 100) : 0
-          const labPercentage = labTotal > 0 ? Math.round((labPresent / labTotal) * 100) : 0
+        const theoryPercentage = theoryTotal > 0 ? Math.round((theoryPresent / theoryTotal) * 100) : 0
+        const labPercentage = labTotal > 0 ? Math.round((labPresent / labTotal) * 100) : 0
 
-          trendData.push({
-            month: format(month, "MMM"),
-            theoryAttendance: theoryPercentage,
-            labAttendance: labPercentage,
-          })
-        } catch (error) {
-          // Add a placeholder value if there's an error
-          trendData.push({
-            month: format(month, "MMM"),
-            theoryAttendance: 0,
-            labAttendance: 0,
-          })
-        }
+        trendData.push({
+          month: format(month, "MMM"),
+          theoryAttendance: theoryPercentage,
+          labAttendance: labPercentage,
+        })
       }
 
       return trendData
@@ -430,63 +452,122 @@ export default function HomeScreen() {
     }
   }
 
+  // Add effect to clear cache when user changes
+  useEffect(() => {
+    if (user?.uid) {
+      // Clear cache when user changes
+      setCachedOverallStats([])
+      setCachedMonthlyStats({})
+      setCachedTrendData([])
+    }
+  }, [user?.uid])
+
+  // Load data when component mounts or when tab/month changes
+  useEffect(() => {
+    if (user?.uid) {
+      // Reset monthly stats when changing months to prevent showing stale data
+      if (activeTab === "monthly") {
+        // Clear monthly stats immediately
+        setMonthlyStats([])
+        // Show loading indicator
+        setIsLoading(true)
+      }
+
+      // Add a delay before loading data to ensure state updates are processed
+      const timer = setTimeout(() => {
+        loadAttendanceData()
+      }, 500)
+
+      return () => {
+        // Clean up timer on unmount or when dependencies change
+        clearTimeout(timer)
+      }
+    }
+  }, [user?.uid, activeTab, selectedMonth])
+
   // Refresh data
   const refreshData = () => {
     setIsRefreshing(true)
-
-    // Start spin animation
-    Animated.timing(spinAnim, {
-      toValue: 1,
-      duration: 800,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }).start(() => {
-      spinAnim.setValue(0)
-    })
 
     // Force re-fetch data
     loadAttendanceData()
   }
 
-  // Navigate to previous month
-  const goToPreviousMonth = () => {
-    // Animate the change
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0.5,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start()
+  // Update the switchTab function to clear monthly stats when switching tabs
+  const switchTab = (tab: string) => {
+    if (tab === activeTab) return
 
-    setSelectedMonth((prevMonth) => subMonths(prevMonth, 1))
+
+    // Show loading indicator
+    setIsLoading(true)
+
+    // Clear monthly stats when switching tabs to prevent showing stale data
+    if (tab === "monthly") {
+      setMonthlyStats([])
+      // Clear cached monthly stats to ensure fresh data
+      setCachedMonthlyStats({})
+    }
+
+    // Update the active tab
+    setActiveTab(tab)
+
+    // Load data with a delay to ensure state updates are processed
+    setTimeout(() => {
+      loadAttendanceData()
+    }, 500)
   }
 
-  // Navigate to next month
+  // Update the goToPreviousMonth and goToNextMonth functions to show loading state
+  const goToPreviousMonth = () => {
+    // Calculate the new month first
+    const newMonth = subMonths(selectedMonth, 1)
+
+    // Show loading indicator and clear monthly stats immediately
+    setIsLoading(true)
+    setMonthlyStats([])
+
+    // Update the selected month state
+    setSelectedMonth(newMonth)
+
+    // Remove any cached data for the target month
+    const monthKey = format(newMonth, "yyyy-MM")
+    setCachedMonthlyStats((prev) => {
+      const newCache = { ...prev }
+      delete newCache[monthKey]
+      return newCache
+    })
+
+    // Force a fresh data load with a delay to ensure state updates are processed
+    setTimeout(() => {
+      loadAttendanceData()
+    }, 500)
+  }
+
+  // Similarly update goToNextMonth
   const goToNextMonth = () => {
     const nextMonth = addMonths(selectedMonth, 1)
     // Don't allow selecting future months beyond current
     if (nextMonth <= new Date()) {
-      // Animate the change
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 0.5,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start()
 
+      // Show loading indicator and clear monthly stats immediately
+      setIsLoading(true)
+      setMonthlyStats([])
+
+      // Update the selected month state
       setSelectedMonth(nextMonth)
+
+      // Remove any cached data for the target month
+      const monthKey = format(nextMonth, "yyyy-MM")
+      setCachedMonthlyStats((prev) => {
+        const newCache = { ...prev }
+        delete newCache[monthKey]
+        return newCache
+      })
+
+      // Force a fresh data load with a delay to ensure state updates are processed
+      setTimeout(() => {
+        loadAttendanceData()
+      }, 500)
     }
   }
 
@@ -502,26 +583,6 @@ export default function HomeScreen() {
   }
 
   // Switch tabs with animation
-  const switchTab = (tab: string) => {
-    if (tab === activeTab) return
-
-    // Animate tab change
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 300,
-        easing: Easing.elastic(1),
-        useNativeDriver: true,
-      }),
-    ]).start()
-
-    setActiveTab(tab)
-  }
 
   // Prepare data for theory bar chart
   const getTheoryBarChartData = () => {
@@ -613,13 +674,11 @@ export default function HomeScreen() {
   const renderAttendanceTable = (stats: SubjectAttendance[]) => {
     if (stats.length === 0) {
       return (
-        <Animated.View
+        <View
           style={[
             styles.emptyState,
             {
               backgroundColor: theme.card,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
             },
           ]}
         >
@@ -629,7 +688,7 @@ export default function HomeScreen() {
           <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Attendance Data</Text>
           <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
             {activeTab === "monthly"
-              ? "No attendance records for this month"
+              ? `No attendance records found for ${format(selectedMonth, "MMMM yyyy")}`
               : "Start taking attendance to see statistics"}
           </Text>
           <TouchableOpacity
@@ -638,17 +697,12 @@ export default function HomeScreen() {
           >
             <Text style={styles.emptyStateButtonText}>Take Attendance</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       )
     }
 
     return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-        }}
-      >
+      <View>
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <LinearGradient
@@ -718,16 +772,14 @@ export default function HomeScreen() {
             )
           })}
         </View>
-      </Animated.View>
+      </View>
     )
   }
 
   // Create a refresh button component for the header
   const RefreshButton = () => (
     <TouchableOpacity style={styles.refreshButton} onPress={refreshData} disabled={isRefreshing}>
-      <Animated.View style={{ transform: [{ rotate: spin }] }}>
-        <Ionicons name="refresh" size={24} color="white" />
-      </Animated.View>
+      <Ionicons name="refresh" size={24} color="white" />
     </TouchableOpacity>
   )
 
@@ -746,15 +798,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshData} colors={[theme.primary]} />}
       >
         {/* Stats Cards */}
-        <Animated.View
-          style={[
-            styles.statsContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-            },
-          ]}
-        >
+        <View style={styles.statsContainer}>
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: theme.card }]}
             onPress={() => navigation.navigate("Attendance")}
@@ -784,16 +828,14 @@ export default function HomeScreen() {
             </LinearGradient>
             <Text style={[styles.actionText, { color: theme.text }]}>View Timetable</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Tab Selector */}
-        <Animated.View
+        <View
           style={[
             styles.tabContainer,
             {
               backgroundColor: theme.card,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
             },
           ]}
         >
@@ -838,17 +880,15 @@ export default function HomeScreen() {
               Monthly
             </Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Month Selector (only for monthly tab) */}
         {activeTab === "monthly" && (
-          <Animated.View
+          <View
             style={[
               styles.monthSelector,
               {
                 backgroundColor: theme.card,
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
               },
             ]}
           >
@@ -874,7 +914,7 @@ export default function HomeScreen() {
             >
               <Ionicons name="chevron-forward" size={20} color={theme.primary} />
             </TouchableOpacity>
-          </Animated.View>
+          </View>
         )}
 
         {/* Dashboard Content */}
@@ -895,15 +935,7 @@ export default function HomeScreen() {
           ) : (
             <>
               {/* Title */}
-              <Animated.View
-                style={[
-                  styles.sectionHeader,
-                  {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideAnim }],
-                  },
-                ]}
-              >
+              <View style={styles.sectionHeader}>
                 {/* Attendance Table */}
                 <View style={styles.tableSection}>
                   <Text style={[styles.tableSectionTitle, { color: theme.text }]}>Detailed Attendance</Text>
@@ -917,18 +949,10 @@ export default function HomeScreen() {
                     ? "Combined attendance from all months"
                     : `Attendance for ${format(selectedMonth, "MMMM yyyy")}`}
                 </Text>
-              </Animated.View>
+              </View>
 
               {/* Charts Section */}
-              <Animated.View
-                style={[
-                  styles.chartsContainer,
-                  {
-                    opacity: fadeAnim,
-                    transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
-                  },
-                ]}
-              >
+              <View style={styles.chartsContainer}>
                 {/* Theory Bar Chart */}
                 <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
                   <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance (%)</Text>
@@ -1043,7 +1067,20 @@ export default function HomeScreen() {
                     </View>
                   </>
                 )}
-              </Animated.View>
+              </View>
+
+              {/* Add the AttendanceCalculator component for the first subject */}
+              {overallStats.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance Calculator</Text>
+                  <AttendanceCalculator
+                    subject={overallStats[0]?.subject || null}
+                    timetable={[]}
+                    attendance={{}}
+                    selectedDate={format(new Date(), "yyyy-MM-dd")}
+                  />
+                </View>
+              )}
             </>
           )}
         </View>

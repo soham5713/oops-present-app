@@ -465,8 +465,8 @@ export const Timetable = {
         H1: {
           Monday: [{ subject: "DS", type: "lab" }],
           Tuesday: [{ subject: "DECA", type: "lab" }],
-          Wednesday: [{ subject: "EC", type: "lab" }],
-          Thursday: [],
+          Wednesday: [],
+          Thursday: [{ subject: "EC", type: "lab" }],
           Friday: [{ subject: "TS", type: "lab" }],
         },
         H2: {

@@ -16,6 +16,9 @@ import Header from "../components/Header"
 // Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
 
+// Add a new import for the AttendanceCalculator component
+import AttendanceCalculator from "../components/AttendanceCalculator"
+
 // Define the subject type based on the timetable structure
 type SubjectType = {
   subject: string
@@ -387,6 +390,23 @@ export default function AttendanceScreen() {
     )
   }, [currentMonth, getDaysInMonth, goToNextMonth, goToPreviousMonth, markedDates, selectedDate, theme, isDarkMode])
 
+  // Add a function to display imported data in the UI
+  const renderImportedDataInfo = () => {
+    if (!user?.uid || !timetable.length) return null
+
+    // Get unique subjects from timetable
+    const subjects = [...new Set(timetable.map((item) => item.subject))]
+
+    return (
+      <View style={[styles.importedDataCard, { backgroundColor: theme.card }]}>
+        <Text style={[styles.importedDataTitle, { color: theme.text }]}>Imported Attendance Data</Text>
+        <Text style={[styles.importedDataSubtitle, { color: theme.secondaryText }]}>
+          Previously imported attendance data is included in your statistics
+        </Text>
+      </View>
+    )
+  }
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
       <Header
@@ -560,6 +580,15 @@ export default function AttendanceScreen() {
                 </>
               )}
             </TouchableOpacity>
+
+            {/* Add the AttendanceCalculator component here */}
+            <AttendanceCalculator
+              subject={timetable.length > 0 ? timetable[0].subject : null}
+              timetable={timetable}
+              attendance={attendance}
+              selectedDate={selectedDate}
+            />
+            {renderImportedDataInfo()}
           </>
         )}
       </ScrollView>
@@ -759,5 +788,19 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     textAlign: "center",
+  },
+  importedDataCard: {
+    borderRadius: spacing.borderRadius.large,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    ...createShadow(1),
+  },
+  importedDataTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: spacing.xs,
+  },
+  importedDataSubtitle: {
+    fontSize: 14,
   },
 })

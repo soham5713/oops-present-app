@@ -28,6 +28,8 @@ export type UserProfile = {
   division?: string
   batch?: string
   setupCompleted?: boolean
+  semesterStartDate?: string
+  semesterEndDate?: string
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -53,6 +55,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Create a default profile if it doesn't exist
         profile = {
           setupCompleted: false,
+          semesterStartDate: "2025-01-20",
+          semesterEndDate: "2025-05-16",
         }
         try {
           await setDoc(doc(db, "users", userId), profile)
@@ -65,7 +69,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Error fetching user profile:", error)
       // Set a default profile even if there's an error
-      setUserProfile({ setupCompleted: false })
+      setUserProfile({ 
+        setupCompleted: false,
+        semesterStartDate: "2025-01-20",
+        semesterEndDate: "2025-05-16",
+      })
     }
   }
 
@@ -137,6 +145,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Create user document in Firestore
       const defaultProfile: UserProfile = {
         setupCompleted: false,
+        semesterStartDate: "2025-01-20",
+        semesterEndDate: "2025-05-16",
       }
 
       await setDoc(doc(db, "users", userCredential.user.uid), defaultProfile)
