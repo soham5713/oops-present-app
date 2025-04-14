@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/attendance.png",
       "resizeMode": "contain",
-      "backgroundColor": "#fff"
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/attendance.png",
-        "backgroundColor": "#fff"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.soham5713.oopspresent"
     },
@@ -31,6 +31,15 @@
       "eas": {
         "projectId": "a0b3a2dd-50c4-4c12-a104-054a047f2e9a"
       }
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "sdkVersion": "52.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/a0b3a2dd-50c4-4c12-a104-054a047f2e9a",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
     }
   }
 }
