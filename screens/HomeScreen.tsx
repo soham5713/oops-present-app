@@ -282,6 +282,7 @@ export default function HomeScreen() {
 
       // If no records exist for this month, set empty stats and return
       if (!hasRecordsForMonth) {
+        console.log(`[LOAD] No attendance records found for ${format(month, "MMMM yyyy")}`)
         setMonthlyStats([])
         return
       }
@@ -351,6 +352,7 @@ export default function HomeScreen() {
         }
       })
 
+      console.log(`[LOAD] Loaded ${filteredStats.length} subjects for ${format(month, "MMMM yyyy")}`)
 
       // Update state with the new stats
       setMonthlyStats(filteredStats)
@@ -467,6 +469,7 @@ export default function HomeScreen() {
     if (user?.uid) {
       // Reset monthly stats when changing months to prevent showing stale data
       if (activeTab === "monthly") {
+        console.log(`[EFFECT] Month changed to: ${format(selectedMonth, "MMMM yyyy")}`)
         // Clear monthly stats immediately
         setMonthlyStats([])
         // Show loading indicator
@@ -475,6 +478,7 @@ export default function HomeScreen() {
 
       // Add a delay before loading data to ensure state updates are processed
       const timer = setTimeout(() => {
+        console.log(`[EFFECT] Loading data for ${activeTab} view, month: ${format(selectedMonth, "MMMM yyyy")}`)
         loadAttendanceData()
       }, 500)
 
@@ -497,6 +501,7 @@ export default function HomeScreen() {
   const switchTab = (tab: string) => {
     if (tab === activeTab) return
 
+    console.log(`[TAB] Switching from ${activeTab} to ${tab}`)
 
     // Show loading indicator
     setIsLoading(true)
@@ -513,6 +518,7 @@ export default function HomeScreen() {
 
     // Load data with a delay to ensure state updates are processed
     setTimeout(() => {
+      console.log(`[TAB] Loading data after tab switch to ${tab}`)
       loadAttendanceData()
     }, 500)
   }
@@ -521,6 +527,7 @@ export default function HomeScreen() {
   const goToPreviousMonth = () => {
     // Calculate the new month first
     const newMonth = subMonths(selectedMonth, 1)
+    console.log(`[NAV] Navigating from ${format(selectedMonth, "MMMM yyyy")} to ${format(newMonth, "MMMM yyyy")}`)
 
     // Show loading indicator and clear monthly stats immediately
     setIsLoading(true)
@@ -539,6 +546,7 @@ export default function HomeScreen() {
 
     // Force a fresh data load with a delay to ensure state updates are processed
     setTimeout(() => {
+      console.log(`[NAV] Loading data for ${format(newMonth, "MMMM yyyy")} after navigation`)
       loadAttendanceData()
     }, 500)
   }
@@ -548,6 +556,7 @@ export default function HomeScreen() {
     const nextMonth = addMonths(selectedMonth, 1)
     // Don't allow selecting future months beyond current
     if (nextMonth <= new Date()) {
+      console.log(`[NAV] Navigating from ${format(selectedMonth, "MMMM yyyy")} to ${format(nextMonth, "MMMM yyyy")}`)
 
       // Show loading indicator and clear monthly stats immediately
       setIsLoading(true)
@@ -566,6 +575,7 @@ export default function HomeScreen() {
 
       // Force a fresh data load with a delay to ensure state updates are processed
       setTimeout(() => {
+        console.log(`[NAV] Loading data for ${format(nextMonth, "MMMM yyyy")} after navigation`)
         loadAttendanceData()
       }, 500)
     }
@@ -880,6 +890,27 @@ export default function HomeScreen() {
               Monthly
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "calculator" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
+            onPress={() => switchTab("calculator")}
+          >
+            <Ionicons
+              name="calculator"
+              size={18}
+              color={activeTab === "calculator" ? theme.primary : theme.secondaryText}
+              style={styles.tabIcon}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: theme.secondaryText },
+                activeTab === "calculator" && { color: theme.primary, fontWeight: "600" },
+              ]}
+            >
+              Calculator
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Month Selector (only for monthly tab) */}
@@ -931,6 +962,39 @@ export default function HomeScreen() {
               <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.primary }]} onPress={refreshData}>
                 <Text style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
+            </View>
+          ) : activeTab === "calculator" ? (
+            // Calculator Tab Content
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance Calculator</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
+                Calculate your attendance requirements
+              </Text>
+
+              {overallStats.length > 0 ? (
+                <AttendanceCalculator
+                  subject={overallStats[0]?.subject || null}
+                  timetable={[]}
+                  attendance={{}}
+                  selectedDate={format(new Date(), "yyyy-MM-dd")}
+                />
+              ) : (
+                <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+                  <View style={[styles.emptyIconContainer, { backgroundColor: theme.primary + "20" }]}>
+                    <Ionicons name="calculator-outline" size={40} color={theme.primary} />
+                  </View>
+                  <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Attendance Data</Text>
+                  <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
+                    Start taking attendance to use the calculator
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
+                    onPress={() => navigation.navigate("Attendance")}
+                  >
+                    <Text style={styles.emptyStateButtonText}>Take Attendance</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : (
             <>
@@ -1068,19 +1132,6 @@ export default function HomeScreen() {
                   </>
                 )}
               </View>
-
-              {/* Add the AttendanceCalculator component for the first subject */}
-              {overallStats.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance Calculator</Text>
-                  <AttendanceCalculator
-                    subject={overallStats[0]?.subject || null}
-                    timetable={[]}
-                    attendance={{}}
-                    selectedDate={format(new Date(), "yyyy-MM-dd")}
-                  />
-                </View>
-              )}
             </>
           )}
         </View>

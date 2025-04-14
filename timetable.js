@@ -308,250 +308,249 @@ export const Timetable = {
     F: {
       shared: {
         Monday: [
-          { subject: "DECA", type: "theory" },
-          { subject: "EP", type: "theory" },
+          { subject: "DECA", type: "theory", room: "108", time: "01:45 - 02:45" },
+          { subject: "EP", type: "theory", room: "108", time: "02:45 - 03:45" },
         ],
         Tuesday: [
-          { subject: "DECA", type: "theory" },
-          { subject: "DS", type: "theory" },
+          { subject: "DECA", type: "theory", room: "305", time: "09:30 - 10:30" },
+          { subject: "DS", type: "theory", room: "103", time: "10:45 - 12:45" },
         ],
         Wednesday: [
-          { subject: "PSOOP", type: "lab" },
-          { subject: "EP", type: "theory" },
-          { subject: "IKS", type: "lab" },
-          { subject: "TS", type: "theory" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "10:45 - 12:45" },
+          { subject: "EP", type: "theory", room: "103", time: "01:45 - 02:45" },
+          { subject: "IKS", type: "lab", room: "103", time: "02:45 - 03:45" },
+          { subject: "TS", type: "theory", room: "003", time: "04:00 - 05:00" },
         ],
         Thursday: [
-          { subject: "IKS", type: "theory" },
-          { subject: "PSOOP", type: "theory" },
-          { subject: "DECA", type: "theory" },
+          { subject: "IKS", type: "theory", room: "103", time: "09:30 - 10:30" },
+          { subject: "PSOOP", type: "theory", room: "103", time: "10:45 - 12:45" },
+          { subject: "DECA", type: "theory", room: "201", time: "11:45 - 12:45" },
         ],
         Friday: [
-          { subject: "PSOOP", type: "lab" },
-          { subject: "DS", type: "theory" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "10:45 - 12:45" },
+          { subject: "DS", type: "theory", room: "103", time: "01:45 - 03:45" },
         ],
       },
       batches: {
         F1: {
-          Monday: [{ subject: "DS", type: "lab" }],
-          Tuesday: [{ subject: "DECA", type: "lab" }],
+          Monday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
+          Tuesday: [{ subject: "DECA", type: "lab", room: "305", time: "01:45 - 02:45" }],
           Wednesday: [],
-          Thursday: [{ subject: "EP", type: "lab" }],
-          Friday: [{ subject: "TS", type: "lab" }],
+          Thursday: [{ subject: "EP", type: "lab", room: "107", time: "01:45 - 03:45" }],
+          Friday: [{ subject: "TS", type: "lab", room: "202", time: "08:30 - 10:30" }],
         },
         F2: {
-          Monday: [{ subject: "DS", type: "lab" }],
+          Monday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
           Tuesday: [],
           Wednesday: [],
           Thursday: [
-            { subject: "TS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" },
+            { subject: "DECA", type: "lab", room: "101", time: "04:00 - 05:00" },
           ],
-          Friday: [{ subject: "EP", type: "lab" }],
+          Friday: [{ subject: "EP", type: "lab", room: "107", time: "08:30 - 10:30" }],
         },
         F3: {
-          Monday: [{ subject: "EP", type: "lab" }],
-          Tuesday: [{ subject: "TS", type: "lab" }],
+          Monday: [{ subject: "EP", type: "lab", room: "107", time: "10:45 - 12:45" }],
+          Tuesday: [{ subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" }],
           Wednesday: [],
           Thursday: [],
           Friday: [
-            { subject: "DS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "DS", type: "lab", room: "502", time: "08:30 - 10:30" },
+            { subject: "DECA", type: "lab", room: "101", time: "04:00 - 05:00" },
           ],
         },
         F4: {
           Monday: [
-            { subject: "TS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "TS", type: "lab", room: "202", time: "10:45 - 12:45" },
+            { subject: "DECA", type: "lab", room: "108", time: "04:00 - 05:00" },
           ],
-          Tuesday: [{ subject: "EP", type: "lab" }],
+          Tuesday: [{ subject: "EP", type: "lab", room: "107", time: "01:45 - 03:45" }],
           Wednesday: [],
           Thursday: [],
-          Friday: [{ subject: "DS", type: "lab" }],
+          Friday: [{ subject: "DS", type: "lab", room: "502", time: "08:30 - 10:30" }],
         },
       },
     },
     G: {
       shared: {
         Monday: [
-          { subject: "PSOOP", type: "theory" },
-          { subject: "EC", type: "theory" },
-          { subject: "DECA", type: "theory" },
-          { subject: "PSOOP", type: "lab" },
+          { subject: "PSOOP", type: "theory", room: "103", time: "09:30 - 10:30" },
+          { subject: "EC", type: "theory", room: "201", time: "10:45 - 11:45" },
+          { subject: "DECA", type: "theory", room: "201", time: "11:45 - 12:45" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "01:45 - 03:45" },
         ],
         Tuesday: [
-          { subject: "IKS", type: "lab" },
-          { subject: "DS", type: "theory" },
+          { subject: "IKS", type: "lab", room: "201", time: "09:30 - 10:30" },
+          { subject: "DS", type: "theory", room: "103", time: "01:45 - 03:45" },
         ],
         Wednesday: [
-          { subject: "DECA", type: "theory" },
-          { subject: "DS", type: "theory" },
+          { subject: "DECA", type: "theory", room: "103", time: "09:30 - 10:30" },
+          { subject: "DS", type: "theory", room: "103", time: "10:45 - 12:45" },
         ],
         Thursday: [
-          { subject: "EC", type: "theory" },
-          { subject: "PSOOP", type: "lab" },
-          { subject: "TS", type: "theory" },
+          { subject: "EC", type: "theory", room: "305", time: "09:30 - 10:30" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "01:45 - 03:45" },
+          { subject: "TS", type: "theory", room: "003", time: "04:00 - 05:00" },
         ],
         Friday: [
-          { subject: "IKS", type: "theory" },
-          { subject: "DECA", type: "theory" },
+          { subject: "IKS", type: "theory", room: "108", time: "10:45 - 11:45" },
+          { subject: "DECA", type: "theory", room: "108", time: "11:45 - 12:45" },
         ],
       },
       batches: {
         G1: {
           Monday: [],
-          Tuesday: [{ subject: "EC", type: "lab" }],
+          Tuesday: [{ subject: "EC", type: "lab", room: "106", time: "10:45 - 12:45" }],
           Wednesday: [],
-          Thursday: [{ subject: "DS", type: "lab" }],
+          Thursday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:455" }],
           Friday: [
-            { subject: "TS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" },
+            { subject: "DECA", type: "lab", room: "305", time: "04:00 - 05:00" },
           ],
         },
         G2: {
-          Monday: [{ subject: "DECA", type: "lab" }],
-          Tuesday: [{ subject: "TS", type: "lab" }],
+          Monday: [{ subject: "DECA", type: "lab", room: "201", time: "04:00 - 05:00" }],
+          Tuesday: [{ subject: "TS", type: "lab", room: "202", time: "10:45 - 12:45" }],
           Wednesday: [],
-          Thursday: [{ subject: "DS", type: "lab" }],
-          Friday: [{ subject: "EC", type: "lab" }],
+          Thursday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
+          Friday: [{ subject: "EC", type: "lab", room: "106", time: "01:45 - 03:45" }],
         },
         G3: {
-          Monday: [{ subject: "TS", type: "lab" }],
+          Monday: [{ subject: "TS", type: "lab", room: "202", time: "04:00 - 06:00" }],
           Tuesday: [
-            { subject: "DS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" },
+            { subject: "DECA", type: "lab", room: "201", time: "04:00 - 05:00" },
           ],
           Wednesday: [],
-          Thursday: [{ subject: "EC", type: "lab" }],
+          Thursday: [{ subject: "EC", type: "lab", room: "106", time: "10:45 - 12:45" }],
           Friday: [],
         },
         G4: {
           Monday: [],
           Tuesday: [
-            { subject: "DS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" },
+            { subject: "DECA", type: "lab", room: "101", time: "04:00 - 05:00" },
           ],
           Wednesday: [],
-          Thursday: [{ subject: "TS", type: "lab" }],
-          Friday: [{ subject: "EC", type: "lab" }],
+          Thursday: [{ subject: "TS", type: "lab", room: "202", time: "10:45 - 12:45" }],
+          Friday: [{ subject: "EC", type: "lab", room: "106", time: "08:30 - 10:30" }],
         },
       },
-    },
+    },    
     H: {
       shared: {
         Monday: [
-          { subject: "PSOOP", type: "theory" },
-          { subject: "IKS", type: "theory" },
-          { subject: "EC", type: "theory" },
+          { subject: "PSOOP", type: "theory", room: "103", time: "09:30 - 10:30" },
+          { subject: "IKS", type: "theory", room: "305", time: "10:45 - 11:45" },
+          { subject: "EC", type: "theory", room: "305", time: "11:45 - 12:45" },
         ],
         Tuesday: [
-          { subject: "EC", type: "theory" },
-          { subject: "IKS", type: "lab" },
-          { subject: "DECA", type: "theory" },
-          { subject: "DS", type: "theory" },
+          { subject: "EC", type: "theory", room: "101", time: "09:30 - 10:30" },
+          { subject: "IKS", type: "lab", room: "101", time: "10:45 - 11:45" },
+          { subject: "DECA", type: "theory", room: "101", time: "11:45 - 12:45" },
+          { subject: "DS", type: "theory", room: "103", time: "01:45 - 03:45" },
         ],
-        Wednesday: [{ subject: "DS", type: "theory" }],
+        Wednesday: [{ subject: "DS", type: "theory", room: "103", time: "10:45 - 12:45" }],
         Thursday: [
-          { subject: "PSOOP", type: "lab" },
-          { subject: "DECA", type: "theory" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "10:45 - 12:45" },
+          { subject: "DECA", type: "theory", room: "108", time: "01:45 - 02:45" },
         ],
         Friday: [
-          { subject: "DECA", type: "theory" },
-          { subject: "PSOOP", type: "lab" },
-          { subject: "TS", type: "theory" },
+          { subject: "DECA", type: "theory", room: "305", time: "09:30 - 10:30" },
+          { subject: "PSOOP", type: "lab", room: "003", time: "01:45 - 03:45" },
+          { subject: "TS", type: "theory", room: "003", time: "04:00 - 05:00" },
         ],
       },
       batches: {
         H1: {
-          Monday: [{ subject: "DS", type: "lab" }],
-          Tuesday: [{ subject: "DECA", type: "lab" }],
+          Monday: [{ subject: "DS", type: "lab", room: "502", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DECA", type: "lab", room: "305", time: "04:00 - 05:00" }],
           Wednesday: [],
-          Thursday: [{ subject: "EC", type: "lab" }],
-          Friday: [{ subject: "TS", type: "lab" }],
+          Thursday: [{ subject: "EC", type: "lab", room: "106", time: "02:45 - 04:45" }],
+          Friday: [{ subject: "TS", type: "lab", room: "202", time: "10:45 - 12:45" }],
         },
         H2: {
-          Monday: [{ subject: "DS", type: "lab" }],
+          Monday: [{ subject: "DS", type: "lab", room: "502", time: "01:45 - 03:45" }],
           Tuesday: [],
-          Wednesday: [{ subject: "TS", type: "lab" }],
-          Thursday: [{ subject: "DECA", type: "lab" }],
-          Friday: [{ subject: "EC", type: "lab" }],
+          Wednesday: [{ subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DECA", type: "lab", room: "108", time: "02:45 - 03:45" }],
+          Friday: [{ subject: "EC", type: "lab", room: "106", time: "10:45 - 12:45" }],
         },
         H3: {
-          Monday: [{ subject: "EC", type: "lab" }],
+          Monday: [{ subject: "EC", type: "lab", room: "106", time: "01:45 - 03:45" }],
           Tuesday: [],
           Wednesday: [
-            { subject: "TS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "TS", type: "lab", room: "202", time: "08:30 - 10:30" },
+            { subject: "DECA", type: "lab", room: "305", time: "01:45 - 02:45" },
           ],
           Thursday: [],
-          Friday: [{ subject: "DS", type: "lab" }],
+          Friday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
         },
         H4: {
           Monday: [
-            { subject: "TS", type: "lab" },
-            { subject: "DECA", type: "lab" },
+            { subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" },
+            { subject: "DECA", type: "lab", room: "101", time: "04:00 - 05:00" },
           ],
           Tuesday: [],
-          Wednesday: [{ subject: "EC", type: "lab" }],
+          Wednesday: [{ subject: "EC", type: "lab", room: "106", time: "08:30 - 10:30" }],
           Thursday: [],
-          Friday: [{ subject: "DS", type: "lab" }],
+          Friday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
         },
       },
     },
   }
   
   export const Divisions = ["A", "B", "C", "D", "E", "F", "G", "H"]
-  
-  export const AllSubjects = ["DECA", "PSOOP", "BEE", "DS", "EG", "EM", "EP", "EC", "IKS", "UHV", "TS", "SS1"]
-  
-  export const getDivisionTimetable = (division, batch, day) => {
-    const divisionSchedule = Timetable[division]
-    if (!divisionSchedule) return []
-  
-    const sharedSchedule = divisionSchedule.shared[day] || []
-    const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
-  
-    return [...sharedSchedule, ...batchSchedule]
-  }
-  
-  export const getDaySubjects = (division, batch, day) => {
-    const divisionSchedule = Timetable[division]
-    if (!divisionSchedule) return []
-  
-    const sharedSchedule = divisionSchedule.shared[day] || []
-    const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
-  
-    // Combine shared and batch schedules, preserving both theory and lab
-    const combinedSchedule = [...sharedSchedule]
-    batchSchedule.forEach((batchSubject) => {
-      const existingSubject = combinedSchedule.find((s) => s.subject === batchSubject.subject)
-      if (existingSubject) {
-        existingSubject.type = Array.isArray(existingSubject.type)
-          ? [...new Set([...existingSubject.type, batchSubject.type])]
-          : [existingSubject.type, batchSubject.type]
-      } else {
-        combinedSchedule.push({ ...batchSubject, type: [batchSubject.type] })
-      }
-    })
-  
-    return combinedSchedule.map((subject) => ({
-      ...subject,
-      type: Array.isArray(subject.type) ? subject.type : [subject.type],
-    }))
-  }
-  
-  export const hasSubject = (division, batch, subject) => {
-    const divisionSchedule = Timetable[division]
-    if (!divisionSchedule) return false
-  
-    const checkSchedule = (schedule) => {
-      return Object.values(schedule).some((daySubjects) => daySubjects.some((item) => item.subject === subject))
+
+export const AllSubjects = ["DECA", "PSOOP", "BEE", "DS", "EG", "EM", "EP", "EC", "IKS", "UHV", "TS", "SS1"]
+
+export const getDivisionTimetable = (division, batch, day) => {
+  const divisionSchedule = Timetable[division]
+  if (!divisionSchedule) return []
+
+  const sharedSchedule = divisionSchedule.shared[day] || []
+  const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
+
+  return [...sharedSchedule, ...batchSchedule]
+}
+
+export const getDaySubjects = (division, batch, day) => {
+  const divisionSchedule = Timetable[division]
+  if (!divisionSchedule) return []
+
+  const sharedSchedule = divisionSchedule.shared[day] || []
+  const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
+
+  // Combine shared and batch schedules, preserving both theory and lab
+  const combinedSchedule = [...sharedSchedule]
+  batchSchedule.forEach((batchSubject) => {
+    const existingSubject = combinedSchedule.find((s) => s.subject === batchSubject.subject)
+    if (existingSubject) {
+      existingSubject.type = Array.isArray(existingSubject.type)
+        ? [...new Set([...existingSubject.type, batchSubject.type])]
+        : [existingSubject.type, batchSubject.type]
+    } else {
+      combinedSchedule.push({ ...batchSubject, type: [batchSubject.type] })
     }
-  
-    return checkSchedule(divisionSchedule.shared) || checkSchedule(divisionSchedule.batches[batch])
+  })
+
+  return combinedSchedule.map((subject) => ({
+    ...subject,
+    type: Array.isArray(subject.type) ? subject.type : [subject.type],
+  }))
+}
+
+export const hasSubject = (division, batch, subject) => {
+  const divisionSchedule = Timetable[division]
+  if (!divisionSchedule) return false
+
+  const checkSchedule = (schedule) => {
+    return Object.values(schedule).some((daySubjects) => daySubjects.some((item) => item.subject === subject))
   }
-  
-  export const getBatches = (division) => {
-    return Object.keys(Timetable[division]?.batches || {})
-  }
-  
+
+  return checkSchedule(divisionSchedule.shared) || checkSchedule(divisionSchedule.batches[batch])
+}
+
+export const getBatches = (division) => {
+  return Object.keys(Timetable[division]?.batches || {})
+}

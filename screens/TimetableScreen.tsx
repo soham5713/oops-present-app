@@ -8,6 +8,7 @@ import { colors } from "../utils/theme"
 import { getDivisionTimetable } from "../timetable"
 import { SafeAreaView } from "react-native-safe-area-context"
 import Header from "../components/Header"
+import { Ionicons } from "@expo/vector-icons"
 
 // Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
@@ -55,7 +56,10 @@ export default function TimetableScreen() {
 
     const defaultColor = ["#94a3b8", "#475569"]
     const subjectColor = colors[subject] || defaultColor
-    return type === "lab" ? subjectColor[1] : subjectColor[0]
+
+    // Handle case where type might be undefined or not a string
+    const actualType = typeof type === "string" ? type : "theory"
+    return actualType === "lab" ? subjectColor[1] : subjectColor[0]
   }
 
   return (
@@ -94,31 +98,56 @@ export default function TimetableScreen() {
       </View>
       <ScrollView style={styles.timetableContainer}>
         {timetable.length > 0 ? (
-          timetable.map((item, index) => (
-            <View
-              key={index}
-              style={[
-                styles.subjectCard,
-                { backgroundColor: theme.card, borderLeftColor: getSubjectColor(item.subject, item.type) },
-              ]}
-            >
-              <View style={styles.subjectInfo}>
-                <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject}</Text>
-                <View
-                  style={[
-                    styles.typeBadge,
-                    {
-                      backgroundColor: isDarkMode ? theme.background : theme.background,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.typeText, { color: getSubjectColor(item.subject, item.type) }]}>
-                    {item.type.toUpperCase()}
-                  </Text>
+          timetable.map((item, index) => {
+            // Skip items without a subject
+            if (!item || !item.subject) return null
+
+            // Handle case where type might be undefined
+            const subjectType = typeof item.type === "string" ? item.type : "theory"
+
+            return (
+              <View
+                key={index}
+                style={[
+                  styles.subjectCard,
+                  { backgroundColor: theme.card, borderLeftColor: getSubjectColor(item.subject, item.type) },
+                ]}
+              >
+                <View style={styles.subjectInfo}>
+                  <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject}</Text>
+                  <View
+                    style={[
+                      styles.typeBadge,
+                      {
+                        backgroundColor: isDarkMode ? theme.background : theme.background,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.typeText, { color: getSubjectColor(item.subject, item.type) }]}>
+                      {subjectType.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Room and Time Information */}
+                <View style={styles.detailsContainer}>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="location-outline" size={16} color={theme.secondaryText} style={styles.detailIcon} />
+                    <Text style={[styles.detailText, { color: theme.secondaryText }]}>
+                      {item.room || "Room not specified"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <Ionicons name="time-outline" size={16} color={theme.secondaryText} style={styles.detailIcon} />
+                    <Text style={[styles.detailText, { color: theme.secondaryText }]}>
+                      {item.time || "Time not specified"}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))
+            )
+          })
         ) : (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
@@ -174,6 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: spacing.sm,
   },
   subjectName: {
     fontSize: 18,
@@ -196,5 +226,20 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 16,
     textAlign: "center",
+  },
+  detailsContainer: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  detailIcon: {
+    marginRight: spacing.xs,
+  },
+  detailText: {
+    fontSize: 14,
   },
 })

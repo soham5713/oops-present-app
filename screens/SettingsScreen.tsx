@@ -1467,7 +1467,7 @@ export default function SettingsScreen() {
 
             <View style={styles.aboutRow}>
               <Text style={[styles.appName, { color: theme.text }]}>Oops Present</Text>
-              <Text style={[styles.appVersion, { color: theme.secondaryText }]}>Version 1.0.0</Text>
+              <Text style={[styles.appVersion, { color: theme.secondaryText }]}>Version 2.0.0</Text>
               <Text style={[styles.appDescription, { color: theme.secondaryText }]}>
                 A simple app to track student attendance for classes, meetings, or events.
               </Text>

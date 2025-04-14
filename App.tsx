@@ -132,7 +132,6 @@ function AppNavigator() {
         <Image source={require("./assets/attendance.png")} style={{ width: 100, height: 100, marginBottom: 20 }} />
         <Text style={{ marginTop: 16, color: theme.text, fontSize: 24, fontWeight: "bold" }}>Oops Present</Text>
         <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
-        <Text style={{ marginTop: 16, color: theme.text, fontSize: 16 }}>Loading your profile...</Text>
       </View>
     )
   }
