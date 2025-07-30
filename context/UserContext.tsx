@@ -27,6 +27,7 @@ type UserContextType = {
 export type UserProfile = {
   division?: string
   batch?: string
+  semester?: string
   setupCompleted?: boolean
   semesterStartDate?: string
   semesterEndDate?: string
@@ -61,15 +62,14 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           await setDoc(doc(db, "users", userId), profile)
         } catch (error) {
-          console.error("Error creating default user profile:", error)
+          // Silent fail for profile creation
         }
       }
 
       setUserProfile(profile)
     } catch (error) {
-      console.error("Error fetching user profile:", error)
       // Set a default profile even if there's an error
-      setUserProfile({ 
+      setUserProfile({
         setupCompleted: false,
         semesterStartDate: "2025-01-20",
         semesterEndDate: "2025-05-16",
@@ -88,7 +88,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await signInWithEmailAndPassword(auth, email, password)
           // The onAuthStateChanged listener will handle setting the user and profile
         } catch (loginError) {
-          console.error("Auto-login failed with stored credentials:", loginError)
           // Clear potentially invalid credentials
           await AsyncStorage.removeItem(EMAIL_KEY)
           await AsyncStorage.removeItem(PASSWORD_KEY)
@@ -99,10 +98,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false)
       }
     } catch (error) {
-      console.error("Error checking stored credentials:", error)
       // Clear potentially corrupted storage
-      await AsyncStorage.removeItem(EMAIL_KEY)
-      await AsyncStorage.removeItem(PASSWORD_KEY)
+      AsyncStorage.removeItem(EMAIL_KEY)
+      AsyncStorage.removeItem(PASSWORD_KEY)
       setIsLoading(false)
     }
   }
@@ -157,8 +155,38 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return userCredential
     } catch (error) {
-      console.error("Error signing up:", error)
-      throw error
+      // Enhanced error handling with more specific messages
+      let errorMessage = "Could not create account. Please try again."
+
+      switch (error.code) {
+        case "auth/email-already-in-use":
+          errorMessage =
+            "An account with this email already exists. Please use a different email or try signing in instead."
+          break
+        case "auth/invalid-email":
+          errorMessage = "Please enter a valid email address."
+          break
+        case "auth/operation-not-allowed":
+          errorMessage = "Email/password accounts are not enabled. Please contact support."
+          break
+        case "auth/weak-password":
+          errorMessage =
+            "Password is too weak. Please use at least 6 characters with a mix of letters, numbers, and symbols."
+          break
+        case "auth/network-request-failed":
+          errorMessage = "Network error. Please check your internet connection and try again."
+          break
+        case "auth/too-many-requests":
+          errorMessage = "Too many requests. Please wait a few minutes before trying again."
+          break
+        default:
+          errorMessage = error.message || "An unexpected error occurred while creating your account."
+      }
+
+      // Create a custom error with the user-friendly message
+      const customError = new Error(errorMessage)
+      customError.code = error.code
+      throw customError
     }
   }
 
@@ -172,8 +200,40 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return userCredential
     } catch (error) {
-      console.error("Error signing in:", error)
-      throw error
+      // Enhanced error handling with more specific messages
+      let errorMessage = "An error occurred during login. Please try again."
+
+      switch (error.code) {
+        case "auth/user-not-found":
+          errorMessage =
+            "No account found with this email address. Please check your email or sign up for a new account."
+          break
+        case "auth/wrong-password":
+          errorMessage = "Incorrect password. Please check your password and try again."
+          break
+        case "auth/invalid-email":
+          errorMessage = "Please enter a valid email address."
+          break
+        case "auth/user-disabled":
+          errorMessage = "This account has been disabled. Please contact support for assistance."
+          break
+        case "auth/too-many-requests":
+          errorMessage = "Too many failed login attempts. Please wait a few minutes before trying again."
+          break
+        case "auth/network-request-failed":
+          errorMessage = "Network error. Please check your internet connection and try again."
+          break
+        case "auth/invalid-credential":
+          errorMessage = "Invalid email or password. Please check your credentials and try again."
+          break
+        default:
+          errorMessage = error.message || "An unexpected error occurred. Please try again."
+      }
+
+      // Create a custom error with the user-friendly message
+      const customError = new Error(errorMessage)
+      customError.code = error.code
+      throw customError
     }
   }
 
@@ -189,7 +249,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Make sure we're not in loading state anymore
       setIsLoading(false)
     } catch (error) {
-      console.error("Error signing out:", error)
       throw error
     }
   }
@@ -202,7 +261,6 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await setDoc(doc(db, "users", user.uid), updatedProfile, { merge: true })
       setUserProfile(updatedProfile)
     } catch (error) {
-      console.error("Error updating user profile:", error)
       throw error
     }
   }

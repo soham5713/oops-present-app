@@ -7,28 +7,36 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   FlatList,
-  SafeAreaView,
   Image,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { LinearGradient } from "expo-linear-gradient"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
+import { useToast } from "../context/ToastContext"
 import { colors } from "../utils/theme"
 import { Divisions, getBatches } from "../timetable"
-
-// Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
+
+const { width, height } = Dimensions.get("window")
+
+// Available semesters
+const Semesters = ["1", "2", "3", "4", "5", "6", "7", "8"]
 
 export default function SetupScreen() {
   const { updateUserProfile } = useUser()
   const { isDarkMode } = useTheme()
+  const { showToast } = useToast()
   const theme = isDarkMode ? colors.dark : colors.light
 
   const [division, setDivision] = useState("")
   const [batch, setBatch] = useState("")
+  const [semester, setSemester] = useState("")
   const [availableBatches, setAvailableBatches] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
@@ -36,6 +44,7 @@ export default function SetupScreen() {
   // State for custom dropdowns
   const [divisionModalVisible, setDivisionModalVisible] = useState(false)
   const [batchModalVisible, setBatchModalVisible] = useState(false)
+  const [semesterModalVisible, setSemesterModalVisible] = useState(false)
 
   useEffect(() => {
     if (division) {
@@ -49,16 +58,39 @@ export default function SetupScreen() {
   }, [division])
 
   const handleNext = () => {
-    if (!division) {
-      Alert.alert("Error", "Please select your division")
-      return
+    if (currentStep === 1) {
+      if (!division) {
+        showToast({
+          message: "Please select your division to continue",
+          type: "warning",
+        })
+        return
+      }
+      setCurrentStep(2)
+    } else if (currentStep === 2) {
+      if (!batch) {
+        showToast({
+          message: "Please select your batch to continue",
+          type: "warning",
+        })
+        return
+      }
+      setCurrentStep(3)
     }
-    setCurrentStep(2)
+  }
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
   }
 
   const handleComplete = async () => {
-    if (!division || !batch) {
-      Alert.alert("Error", "Please select both division and batch")
+    if (!division || !batch || !semester) {
+      showToast({
+        message: "Please complete all selections before proceeding",
+        type: "warning",
+      })
       return
     }
 
@@ -67,11 +99,20 @@ export default function SetupScreen() {
       await updateUserProfile({
         division,
         batch,
+        semester,
         setupCompleted: true,
+      })
+      showToast({
+        message: "Setup completed successfully! Welcome to Oops Present!",
+        type: "success",
+        duration: 3000,
       })
     } catch (error) {
       console.error("Error saving profile:", error)
-      Alert.alert("Error", "Failed to save your preferences. Please try again.")
+      showToast({
+        message: "Failed to save your preferences. Please try again.",
+        type: "error",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -80,159 +121,338 @@ export default function SetupScreen() {
   // Custom dropdown item renderer
   const renderDropdownItem = (item: string, onSelect: (value: string) => void, prefix: string) => (
     <TouchableOpacity
-      style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
+      style={[styles.dropdownItem, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}
       onPress={() => onSelect(item)}
       activeOpacity={0.7}
     >
-      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
+      <Text style={[styles.dropdownItemText, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>
         {prefix} {item}
       </Text>
     </TouchableOpacity>
   )
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <View style={[styles.iconContainer, { backgroundColor: theme.primary + "20" }]}>
-            <Image source={require("../assets/attendance.png")} style={{ width: 100, height: 100 }} />
-          </View>
-          <Text style={[styles.title, { color: theme.text }]}>Oops Present</Text>
-          <Text style={[styles.subtitle, { color: theme.secondaryText }]}>
-            Let's set up your account to track attendance
-          </Text>
-        </View>
+  const getStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Division</Text>
+            <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
+              Choose the division you belong to
+            </Text>
 
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
-          <View style={styles.stepIndicator}>
-            <View
-              style={[
-                styles.stepCircle,
-                {
-                  backgroundColor: currentStep >= 1 ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              <Text style={styles.stepNumber}>1</Text>
-            </View>
-            <View
-              style={[
-                styles.stepLine,
-                {
-                  backgroundColor: currentStep >= 2 ? theme.primary : theme.border,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.stepCircle,
-                {
-                  backgroundColor: currentStep >= 2 ? theme.primary : theme.border,
-                },
-              ]}
-            >
-              <Text style={styles.stepNumber}>2</Text>
-            </View>
-          </View>
-
-          {currentStep === 1 ? (
-            <View style={styles.stepContent}>
-              <Text style={[styles.stepTitle, { color: theme.text }]}>Select Your Division</Text>
-              <Text style={[styles.stepDescription, { color: theme.secondaryText }]}>
-                Choose the division you belong to
-              </Text>
-
-              <Text style={[styles.inputLabel, { color: theme.text }]}>Division</Text>
-
-              {/* Custom Division Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Division</Text>
               <TouchableOpacity
                 style={[
-                  styles.customDropdown,
+                  styles.inputContainer,
                   {
-                    backgroundColor: isDarkMode ? theme.background : "#f3f4f6",
-                    borderColor: theme.border,
+                    backgroundColor: isDarkMode ? "#2a2a3e" : "#f8f9fa",
+                    borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
                   },
                 ]}
                 onPress={() => setDivisionModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.dropdownText, { color: division ? theme.text : theme.secondaryText }]}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="school-outline" size={20} color="#667eea" />
+                </View>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    { color: division ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
                   {division ? `Division ${division}` : "Select Division"}
                 </Text>
-                <View style={[styles.dropdownIndicator, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="chevron-down" size={16} color="white" />
+                <View style={styles.dropdownIndicator}>
+                  <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
                 </View>
               </TouchableOpacity>
+            </View>
 
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: theme.primary }]}
-                onPress={handleNext}
-                activeOpacity={0.8}
+            <TouchableOpacity style={[styles.button]} onPress={handleNext} activeOpacity={0.8}>
+              <LinearGradient
+                colors={["#667eea", "#764ba2"]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>Next</Text>
                 <Ionicons name="arrow-forward" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.stepContent}>
-              <Text style={[styles.stepTitle, { color: theme.text }]}>Select Your Batch</Text>
-              <Text style={[styles.stepDescription, { color: theme.secondaryText }]}>
-                Choose the batch you belong to in Division {division}
-              </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )
 
-              <Text style={[styles.inputLabel, { color: theme.text }]}>Batch</Text>
+      case 2:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Batch</Text>
+            <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
+              Choose the batch you belong to in Division {division}
+            </Text>
 
-              {/* Custom Batch Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Batch</Text>
               <TouchableOpacity
                 style={[
-                  styles.customDropdown,
+                  styles.inputContainer,
                   {
-                    backgroundColor: isDarkMode ? theme.background : "#f3f4f6",
-                    borderColor: theme.border,
+                    backgroundColor: isDarkMode ? "#2a2a3e" : "#f8f9fa",
+                    borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
                   },
                 ]}
                 onPress={() => setBatchModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.dropdownText, { color: batch ? theme.text : theme.secondaryText }]}>
+                <View style={styles.iconContainer}>
+                  <Ionicons name="people-outline" size={20} color="#667eea" />
+                </View>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    { color: batch ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
                   {batch ? `Batch ${batch}` : "Select Batch"}
                 </Text>
-                <View style={[styles.dropdownIndicator, { backgroundColor: theme.primary }]}>
-                  <Ionicons name="chevron-down" size={16} color="white" />
+                <View style={styles.dropdownIndicator}>
+                  <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
                 </View>
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.buttonGroup}>
-                <TouchableOpacity
-                  style={[styles.secondaryButton, { borderColor: theme.primary }]}
-                  onPress={() => setCurrentStep(1)}
-                  activeOpacity={0.8}
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: "#667eea" }]}
+                onPress={handleBack}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={20} color="#667eea" />
+                <Text style={[styles.secondaryButtonText, { color: "#667eea" }]}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.primaryButton]} onPress={handleNext} activeOpacity={0.8}>
+                <LinearGradient
+                  colors={["#667eea", "#764ba2"]}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 >
-                  <Ionicons name="arrow-back" size={20} color={theme.primary} />
-                  <Text style={[styles.secondaryButtonText, { color: theme.primary }]}>Back</Text>
-                </TouchableOpacity>
+                  <Text style={styles.buttonText}>Next</Text>
+                  <Ionicons name="arrow-forward" size={20} color="white" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
 
-                <TouchableOpacity
-                  style={[styles.completeButton, { backgroundColor: theme.primary }]}
-                  onPress={handleComplete}
-                  disabled={isLoading}
-                  activeOpacity={0.8}
+      case 3:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Semester</Text>
+            <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
+              Choose your current semester
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Semester</Text>
+              <TouchableOpacity
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: isDarkMode ? "#2a2a3e" : "#f8f9fa",
+                    borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+                onPress={() => setSemesterModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.iconContainer}>
+                  <Ionicons name="calendar-outline" size={20} color="#667eea" />
+                </View>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    { color: semester ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
+                  {semester ? `Semester ${semester}` : "Select Semester"}
+                </Text>
+                <View style={styles.dropdownIndicator}>
+                  <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: "#667eea" }]}
+                onPress={handleBack}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="arrow-back" size={20} color="#667eea" />
+                <Text style={[styles.secondaryButtonText, { color: "#667eea" }]}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.completeButton, isLoading && styles.buttonDisabled]}
+                onPress={handleComplete}
+                disabled={isLoading}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={isLoading ? ["#a0a0b0", "#8a8a9a"] : ["#667eea", "#764ba2"]}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
                 >
                   {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <Text style={styles.completeButtonText}>Saving...</Text>
-                    </View>
+                    <Text style={styles.buttonText}>Saving...</Text>
                   ) : (
                     <>
-                      <Text style={styles.completeButtonText}>Complete Setup</Text>
+                      <Text style={styles.buttonText}>Complete Setup</Text>
                       <Ionicons name="checkmark" size={20} color="white" />
                     </>
                   )}
-                </TouchableOpacity>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <LinearGradient
+        colors={isDarkMode ? ["#1a1a2e", "#16213e", "#0f3460"] : ["#667eea", "#764ba2", "#f093fb"]}
+        style={styles.gradientBackground}
+      >
+        {/* Decorative elements */}
+        <View style={styles.decorativeContainer}>
+          <View
+            style={[
+              styles.decorativeCircle,
+              styles.circle1,
+              { backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.1)" },
+            ]}
+          />
+          <View
+            style={[
+              styles.decorativeCircle,
+              styles.circle2,
+              { backgroundColor: isDarkMode ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.08)" },
+            ]}
+          />
+          <View
+            style={[
+              styles.decorativeCircle,
+              styles.circle3,
+              { backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.06)" },
+            ]}
+          />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+          {/* Header Section */}
+          <View style={styles.headerSection}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoWrapper}>
+                <LinearGradient colors={["rgba(255,255,255,0.7)", "rgba(255,255,255,0.6)"]} style={styles.logoGradient}>
+                  <Image source={require("../assets/attendance.png")} style={styles.logo} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.appName}>Oops Present</Text>
+              <Text style={styles.subtitle}>Let's set up your account to track attendance</Text>
+            </View>
+          </View>
+
+          {/* Form Section */}
+          <View style={[styles.formContainer, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
+            <View style={styles.formHeader}>
+              <Text style={[styles.title, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Account Setup</Text>
+              <View style={styles.titleUnderline} />
+            </View>
+
+            {/* Step Indicator */}
+            <View style={styles.stepIndicator}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  {
+                    backgroundColor: currentStep >= 1 ? "#667eea" : isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    { color: currentStep >= 1 ? "white" : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
+                  1
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.stepLine,
+                  {
+                    backgroundColor: currentStep >= 2 ? "#667eea" : isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.stepCircle,
+                  {
+                    backgroundColor: currentStep >= 2 ? "#667eea" : isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    { color: currentStep >= 2 ? "white" : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
+                  2
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.stepLine,
+                  {
+                    backgroundColor: currentStep >= 3 ? "#667eea" : isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.stepCircle,
+                  {
+                    backgroundColor: currentStep >= 3 ? "#667eea" : isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.stepNumber,
+                    { color: currentStep >= 3 ? "white" : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
+                  3
+                </Text>
               </View>
             </View>
-          )}
-        </View>
+
+            {getStepContent()}
+          </View>
+        </ScrollView>
 
         {/* Division Selection Modal */}
         <Modal
@@ -242,11 +462,11 @@ export default function SetupScreen() {
           onRequestClose={() => setDivisionModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>Select Division</Text>
+            <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}>
+                <Text style={[styles.modalTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Division</Text>
                 <TouchableOpacity onPress={() => setDivisionModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={theme.text} />
+                  <Ionicons name="close" size={24} color={isDarkMode ? "#ffffff" : "#1a1a2e"} />
                 </TouchableOpacity>
               </View>
 
@@ -277,11 +497,11 @@ export default function SetupScreen() {
           onRequestClose={() => setBatchModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>Select Batch</Text>
+            <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}>
+                <Text style={[styles.modalTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Batch</Text>
                 <TouchableOpacity onPress={() => setBatchModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={theme.text} />
+                  <Ionicons name="close" size={24} color={isDarkMode ? "#ffffff" : "#1a1a2e"} />
                 </TouchableOpacity>
               </View>
 
@@ -303,201 +523,318 @@ export default function SetupScreen() {
             </View>
           </View>
         </Modal>
-      </ScrollView>
-    </SafeAreaView>
+
+        {/* Semester Selection Modal */}
+        <Modal
+          visible={semesterModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setSemesterModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}>
+                <Text style={[styles.modalTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Semester</Text>
+                <TouchableOpacity onPress={() => setSemesterModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={isDarkMode ? "#ffffff" : "#1a1a2e"} />
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={Semesters}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) =>
+                  renderDropdownItem(
+                    item,
+                    (value) => {
+                      setSemester(value)
+                      setSemesterModalVisible(false)
+                    },
+                    "Semester",
+                  )
+                }
+                style={styles.modalList}
+              />
+            </View>
+          </View>
+        </Modal>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   )
 }
 
-// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
-  safeArea: {
+  gradientBackground: {
     flex: 1,
+  },
+  decorativeContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  decorativeCircle: {
+    position: "absolute",
+    borderRadius: 1000,
+  },
+  circle1: {
+    width: 300,
+    height: 300,
+    top: -150,
+    right: -150,
+  },
+  circle2: {
+    width: 200,
+    height: 200,
+    top: height * 0.25,
+    left: -100,
+  },
+  circle3: {
+    width: 150,
+    height: 150,
+    bottom: 50,
+    right: -75,
   },
   container: {
     flexGrow: 1,
+    justifyContent: "center",
     padding: spacing.screenPadding,
-    justifyContent: "center",
+    minHeight: height,
   },
-  header: {
+  headerSection: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+    paddingTop: spacing.xxl,
+    minHeight: height * 0.4,
+  },
+  logoContainer: {
+    alignItems: "center",
+  },
+  logoWrapper: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     marginBottom: spacing.xl,
+    ...createShadow(4),
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  logoGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 70,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: spacing.md,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginTop: spacing.md,
-    textAlign: "center",
+  logo: {
+    width: 90,
+    height: 90,
+  },
+  appName: {
+    fontSize: 36,
+    fontWeight: "800",
+    color: "white",
+    marginBottom: spacing.md,
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    letterSpacing: 1,
   },
   subtitle: {
     fontSize: 16,
+    color: "rgba(255,255,255,0.9)",
     textAlign: "center",
-    marginTop: spacing.sm,
+    lineHeight: 24,
+    fontWeight: "400",
   },
-  card: {
-    borderRadius: spacing.borderRadius.large,
-    padding: spacing.xl,
-    ...createShadow(1),
+  formContainer: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: spacing.xxl,
+    paddingTop: spacing.xxl + spacing.lg,
+    ...createShadow(8),
+    marginTop: spacing.xl,
+    minHeight: height * 0.6,
+  },
+  formHeader: {
+    alignItems: "center",
+    marginBottom: spacing.xl + spacing.md,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "700",
+    marginBottom: spacing.md,
+    letterSpacing: 0.5,
+  },
+  titleUnderline: {
+    width: 60,
+    height: 4,
+    backgroundColor: "#667eea",
+    borderRadius: 2,
   },
   stepIndicator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxl,
   },
   stepCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },
   stepNumber: {
-    color: "white",
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "700",
   },
   stepLine: {
     flex: 1,
-    height: 2,
-    marginHorizontal: spacing.sm,
+    height: 3,
+    marginHorizontal: spacing.md,
+    borderRadius: 2,
   },
   stepContent: {
     paddingVertical: spacing.sm,
   },
   stepTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: spacing.sm,
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: spacing.md,
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
   stepDescription: {
-    fontSize: 15,
-    marginBottom: spacing.xl,
-    lineHeight: 22,
+    fontSize: 16,
+    marginBottom: spacing.xxl,
+    lineHeight: 24,
+    textAlign: "center",
+    fontWeight: "400",
   },
-  customDropdown: {
-    borderWidth: 1,
-    borderRadius: spacing.borderRadius.large,
+  inputGroup: {
     marginBottom: spacing.xl,
-    height: 54,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: spacing.md,
+    letterSpacing: 0.3,
+  },
+  inputContainer: {
     flexDirection: "row",
     alignItems: "center",
+    borderWidth: 2,
+    borderRadius: 20,
     paddingHorizontal: spacing.md,
-    position: "relative",
+    height: 64,
+    ...createShadow(2),
   },
-  dropdownText: {
-    fontSize: 16,
-    flex: 1,
-  },
-  button: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: spacing.borderRadius.large,
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(102, 126, 234, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    ...createShadow(1),
+    marginRight: spacing.md,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  dropdownIndicator: {
+    padding: spacing.sm,
+  },
+  button: {
+    height: 64,
+    borderRadius: 20,
+    marginTop: spacing.xl,
+    ...createShadow(4),
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonGradient: {
+    flex: 1,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
   },
   buttonText: {
     color: "white",
-    fontSize: 17,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.5,
     marginRight: spacing.sm,
   },
   buttonGroup: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: spacing.sm,
+    marginTop: spacing.xl,
+    gap: spacing.md,
   },
   secondaryButton: {
     flexDirection: "row",
-    height: 54,
-    borderRadius: spacing.borderRadius.large,
+    height: 64,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
+    borderWidth: 2,
+    paddingHorizontal: spacing.lg,
+    flex: 1,
   },
   secondaryButtonText: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
     marginLeft: spacing.sm,
+  },
+  primaryButton: {
+    height: 64,
+    borderRadius: 20,
+    flex: 3,
+    ...createShadow(4),
   },
   completeButton: {
-    flexDirection: "row",
-    height: 54,
-    borderRadius: spacing.borderRadius.large,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    flex: 1,
-    marginLeft: spacing.sm,
-    ...createShadow(2),
-  },
-  completeButtonText: {
-    color: "white",
-    fontSize: 17,
-    fontWeight: "bold",
-    marginRight: spacing.sm,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dropdownIndicator: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderTopRightRadius: spacing.borderRadius.large,
-    borderBottomRightRadius: spacing.borderRadius.large,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: spacing.sm,
+    height: 64,
+    borderRadius: 20,
+    flex: 3,
+    ...createShadow(4),
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
-    padding: 0,
   },
   modalContent: {
-    width: "100%",
-    borderTopLeftRadius: spacing.borderRadius.xl,
-    borderTopRightRadius: spacing.borderRadius.xl,
-    overflow: "hidden",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: "80%",
+    ...createShadow(8),
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: spacing.md,
+    padding: spacing.xl,
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   modalList: {
     maxHeight: 400,
   },
   dropdownItem: {
-    padding: spacing.md,
+    padding: spacing.lg,
     borderBottomWidth: 1,
   },
   dropdownItemText: {
     fontSize: 16,
+    fontWeight: "500",
   },
 })

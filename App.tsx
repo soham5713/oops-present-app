@@ -11,8 +11,7 @@ import { AttendanceProvider } from "./context/AttendanceContext"
 import { ThemeProvider, useTheme } from "./context/ThemeContext"
 import { UserProvider, useUser } from "./context/UserContext"
 import { ToastProvider } from "./context/ToastContext"
-import { View, ActivityIndicator, LogBox, Text, Image } from "react-native"
-import { useEffect, useState } from "react"
+import { View, ActivityIndicator, LogBox } from "react-native"
 
 // Screens
 import HomeScreen from "./screens/HomeScreen"
@@ -107,19 +106,9 @@ function MainTabs() {
 function AppNavigator() {
   const { user, userProfile, isLoading } = useUser()
   const { isDarkMode } = useTheme()
-  const [appReady, setAppReady] = useState(false)
   const theme = isDarkMode ? colors.dark : colors.light
 
-  // Add a slight delay to ensure everything is loaded properly
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppReady(true)
-    }, 1000)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  if (isLoading || !appReady) {
+  if (isLoading) {
     return (
       <View
         style={{
@@ -129,9 +118,7 @@ function AppNavigator() {
           backgroundColor: theme.background,
         }}
       >
-        <Image source={require("./assets/attendance.png")} style={{ width: 100, height: 100, marginBottom: 20 }} />
-        <Text style={{ marginTop: 16, color: theme.text, fontSize: 24, fontWeight: "bold" }}>Oops Present</Text>
-        <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     )
   }

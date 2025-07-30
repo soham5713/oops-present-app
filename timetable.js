@@ -498,6 +498,71 @@ export const Timetable = {
         },
       },
     },
+
+    // A: {
+    //   shared: {
+    //     Monday: [
+    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+    //       { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+    //       { subject: "MDM", type: "theory", room: "508", time: "11:45 - 12:45" },
+    //       { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
+    //       { subject: "OS", type: "theory", room: "508", time: "02:45 - 03:45" }
+    //     ],
+    //     Tuesday: [
+    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+    //       { subject: "SMCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+    //       { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+    //       { subject: "OS", type: "theory", room: "508", time: "11:45 - 12:45" },
+    //       { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
+    //     ],
+    //     Wednesday: [
+    //       { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+    //       { subject: "PCS", type: "theory", room: "508", time: "11:45 - 12:45" },
+    //       { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
+    //     ],
+    //     Thursday: [
+    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+    //       { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
+    //       { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
+    //       { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" }
+    //     ],
+    //     Friday: [
+    //       { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+    //       { subject: "CCN", type: "theory", room: "508", time: "11:45 - 12:45" },
+    //       { subject: "OS", type: "theory", room: "508", time: "01:45 - 02:45" },
+    //       { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
+    //       { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" },
+    //       { subject: "LLC", type: "theory", room: "508", time: "05:00 - 06:00" }
+    //     ]
+    //   },
+    //   batches: {
+    //     AA: {
+    //       Monday: [{ subject: "PCS", type: "lab", room: "601", time: "04:00 - 06:00" }],
+    //       Tuesday: [{ subject: "CCN", type: "lab", room: "601", time: "01:45 - 03:45" }],
+    //       Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+    //       Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "10:45 - 12:45" }],
+    //     },
+    //     AB: {
+    //       Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "04:00 - 06:00" }],
+    //       Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+    //       Wednesday: [{ subject: "CCN", type: "lab", room: "603-3", time: "01:45 - 03:45" }],
+    //       Thursday: [{ subject: "OS", type: "lab", room: "608", time: "10:45 - 12:45" }],
+    //     },
+    //     AC: {
+    //       Monday: [{ subject: "OS", type: "lab", room: "608", time: "04:00 - 06:00" }],
+    //       Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+    //       Wednesday: [{ subject: "PCS", type: "lab", room: "609", time: "01:45 - 03:45" }],
+    //       Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "10:45 - 12:45" }],
+    //     },
+    //     AD: {
+    //       Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "04:00 - 06:00" }],
+    //       Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+    //       Wednesday: [{ subject: "DAA", type: "lab", room: "702-B", time: "01:45 - 03:45" }],
+    //       Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "10:45 - 12:45" }],
+    //     }
+    //   }
+    // }
+    
   }
   
   export const Divisions = ["A", "B", "C", "D", "E", "F", "G", "H"]

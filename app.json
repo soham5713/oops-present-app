@@ -2,7 +2,7 @@
   "expo": {
     "name": "Oops Present",
     "slug": "oops-present",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/attendance.png",
     "userInterfaceStyle": "light",
@@ -22,24 +22,25 @@
         "foregroundImage": "./assets/attendance.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.soham5713.oopspresent"
+      "package": "com.soham_5713.oopspresent"
     },
     "web": {
       "favicon": "./assets/attendance.png"
     },
     "extra": {
       "eas": {
-        "projectId": "a0b3a2dd-50c4-4c12-a104-054a047f2e9a"
+        "projectId": "fd2a0da3-9796-4452-93f7-e53acaf0c5cf"
       }
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
-    "sdkVersion": "52.0.0",
     "updates": {
-      "url": "https://u.expo.dev/a0b3a2dd-50c4-4c12-a104-054a047f2e9a",
-      "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD"
-    }
+      "url": "https://u.expo.dev/fd2a0da3-9796-4452-93f7-e53acaf0c5cf",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "soham_5713"
   }
 }
