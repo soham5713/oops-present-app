@@ -1,7 +1,17 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Animated } from "react-native"
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  StatusBar,
+} from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
@@ -11,13 +21,7 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { saveAttendance, getAttendanceByDate, type AttendanceRecord } from "../firebase/attendanceService"
 import { useToast } from "../context/ToastContext"
 import { SafeAreaView } from "react-native-safe-area-context"
-import Header from "../components/Header"
-
-// Import the spacing utilities
-import { spacing, createShadow } from "../utils/spacing"
-
-// Add a new import for the AttendanceCalculator component
-import AttendanceCalculator from "../components/AttendanceCalculator"
+import { LinearGradient } from "expo-linear-gradient"
 
 // Define the subject type based on the timetable structure
 type SubjectType = {
@@ -80,7 +84,7 @@ export default function AttendanceScreen() {
 
   // Load timetable for selected date
   const loadTimetable = useCallback(() => {
-    if (!userProfile?.division || !userProfile?.batch) return []
+    if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) return []
 
     const dayOfWeek = getDayOfWeek(selectedDate)
 
@@ -90,13 +94,13 @@ export default function AttendanceScreen() {
     }
 
     try {
-      const subjects = getDaySubjects(userProfile.division, userProfile.batch, dayOfWeek)
+      const subjects = getDaySubjects(userProfile.division, userProfile.batch, dayOfWeek, userProfile.semester)
       return subjects || []
     } catch (error) {
       console.error("Error loading timetable:", error)
       return []
     }
-  }, [selectedDate, userProfile?.division, userProfile?.batch, getDayOfWeek])
+  }, [selectedDate, userProfile?.division, userProfile?.batch, userProfile?.semester, getDayOfWeek])
 
   // Load attendance records for selected date
   const loadAttendance = useCallback(async () => {
@@ -390,253 +394,341 @@ export default function AttendanceScreen() {
     )
   }, [currentMonth, getDaysInMonth, goToNextMonth, goToPreviousMonth, markedDates, selectedDate, theme, isDarkMode])
 
-  // Add a function to display imported data in the UI
-  const renderImportedDataInfo = () => {
-    if (!user?.uid || !timetable.length) return null
-
-    // Get unique subjects from timetable
-    const subjects = [...new Set(timetable.map((item) => item.subject))]
-
-    return (
-      <View style={[styles.importedDataCard, { backgroundColor: theme.card }]}>
-        <Text style={[styles.importedDataTitle, { color: theme.text }]}>Imported Attendance Data</Text>
-        <Text style={[styles.importedDataSubtitle, { color: theme.secondaryText }]}>
-          Previously imported attendance data is included in your statistics
-        </Text>
-      </View>
-    )
-  }
-
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
-      <Header
-        title="Oops Present"
-        subtitle={
-          userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Attendance Tracker"
-        }
-      />
-
-      {/* Success message */}
-      {showSuccess && (
-        <Animated.View
-          style={[
-            styles.successMessage,
-            {
-              backgroundColor: theme.present,
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: fadeAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Ionicons name="checkmark-circle" size={20} color={theme.presentText} />
-          <Text style={[styles.successText, { color: theme.presentText }]}>{successMessage}</Text>
-        </Animated.View>
-      )}
-
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {renderCalendar()}
-
-        <View style={styles.dateInfo}>
-          <Text style={[styles.dateText, { color: theme.text }]}>
-            {format(parseISO(selectedDate), "EEEE, MMMM d, yyyy")}
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.logoContainer}>
+        <View style={[styles.logoCircle, { backgroundColor: theme.primary }]}>
+          <Ionicons name="checkbox" size={28} color="white" />
+        </View>
+        <View style={styles.headerText}>
+          <Text style={[styles.appName, { color: theme.text }]}>Mark Attendance</Text>
+          <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
+            {userProfile?.division
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
+                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+                }`
+              : "Select your classes"}
           </Text>
         </View>
+      </View>
+    </View>
+  )
 
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading timetable...</Text>
-          </View>
-        ) : timetable.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
-            <Ionicons name="calendar-outline" size={48} color={theme.secondaryText} />
-            <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Classes Today</Text>
-            <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
-              There are no classes scheduled for this day.
-            </Text>
-          </View>
-        ) : (
-          <>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Classes</Text>
+  return (
+    <View style={styles.fullScreenContainer}>
+      {/* Status Bar Configuration */}
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent={true}
+      />
 
-            {timetable.map((subject, index) => (
-              <View key={index} style={[styles.subjectCard, { backgroundColor: theme.card }]}>
-                <View style={[styles.subjectHeader, { borderBottomColor: theme.border }]}>
-                  <Text style={[styles.subjectName, { color: theme.text }]}>{subject.subject}</Text>
+      <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
+        {/* Decorative circles */}
+        <View style={[styles.circle, styles.circle1, { backgroundColor: theme.primary + "20" }]} />
+        <View style={[styles.circle, styles.circle2, { backgroundColor: theme.primary + "15" }]} />
+        <View style={[styles.circle, styles.circle3, { backgroundColor: theme.primary + "10" }]} />
+
+        <SafeAreaView style={styles.safeArea} edges={[]}>
+          <View style={styles.statusBarSpacer} />
+          {renderHeader()}
+
+          {/* Success message */}
+          {showSuccess && (
+            <Animated.View
+              style={[
+                styles.successMessage,
+                {
+                  backgroundColor: theme.present,
+                  opacity: fadeAnim,
+                  transform: [
+                    {
+                      translateY: fadeAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-20, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={20} color={theme.presentText} />
+              <Text style={[styles.successText, { color: theme.presentText }]}>{successMessage}</Text>
+            </Animated.View>
+          )}
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {renderCalendar()}
+
+            <View style={styles.dateInfo}>
+              <Text style={[styles.dateText, { color: theme.text }]}>
+                {format(parseISO(selectedDate), "EEEE, MMMM d, yyyy")}
+              </Text>
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading timetable...</Text>
+              </View>
+            ) : timetable.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+                <View style={[styles.emptyStateIcon, { backgroundColor: theme.primary + "15" }]}>
+                  <Ionicons name="calendar-outline" size={48} color={theme.primary} />
                 </View>
+                <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Classes Today</Text>
+                <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
+                  There are no classes scheduled for this day.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Classes</Text>
 
-                <View style={styles.attendanceOptions}>
-                  {subject.type.map((type, typeIndex) => (
-                    <View key={typeIndex} style={styles.attendanceRow}>
-                      <View style={styles.typeContainer}>
-                        <Text style={[styles.typeLabel, { color: theme.secondaryText }]}>{type.toUpperCase()}</Text>
-                      </View>
+                {timetable.map((subject, index) => (
+                  <View key={index} style={[styles.subjectCard, { backgroundColor: theme.card }]}>
+                    <View style={[styles.subjectHeader, { borderBottomColor: theme.border }]}>
+                      <Text style={[styles.subjectName, { color: theme.text }]}>{subject.subject}</Text>
+                    </View>
 
-                      <View style={styles.statusButtons}>
-                        <TouchableOpacity
-                          style={[
-                            styles.statusButton,
-                            {
-                              backgroundColor:
-                                attendance[`${subject.subject}_${type}`]?.status === "present"
-                                  ? theme.present
-                                  : theme.background,
-                            },
-                          ]}
-                          onPress={() => toggleAttendance(subject.subject, type)}
-                        >
-                          <Ionicons
-                            name={
-                              attendance[`${subject.subject}_${type}`]?.status === "present"
-                                ? "checkmark-circle"
-                                : "checkmark-circle-outline"
-                            }
-                            size={24}
-                            color={
-                              attendance[`${subject.subject}_${type}`]?.status === "present"
-                                ? theme.presentText
-                                : theme.secondaryText
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.statusText,
-                              {
-                                color:
+                    <View style={styles.attendanceOptions}>
+                      {subject.type.map((type, typeIndex) => (
+                        <View key={typeIndex} style={styles.attendanceRow}>
+                          <View style={styles.typeContainer}>
+                            <Text style={[styles.typeLabel, { color: theme.secondaryText }]}>{type.toUpperCase()}</Text>
+                          </View>
+
+                          <View style={styles.statusButtons}>
+                            <TouchableOpacity
+                              style={[
+                                styles.statusButton,
+                                {
+                                  backgroundColor:
+                                    attendance[`${subject.subject}_${type}`]?.status === "present"
+                                      ? theme.present
+                                      : theme.background,
+                                },
+                              ]}
+                              onPress={() => toggleAttendance(subject.subject, type)}
+                            >
+                              <Ionicons
+                                name={
+                                  attendance[`${subject.subject}_${type}`]?.status === "present"
+                                    ? "checkmark-circle"
+                                    : "checkmark-circle-outline"
+                                }
+                                size={24}
+                                color={
                                   attendance[`${subject.subject}_${type}`]?.status === "present"
                                     ? theme.presentText
-                                    : theme.secondaryText,
-                              },
-                            ]}
-                          >
-                            Present
-                          </Text>
-                        </TouchableOpacity>
+                                    : theme.secondaryText
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.statusText,
+                                  {
+                                    color:
+                                      attendance[`${subject.subject}_${type}`]?.status === "present"
+                                        ? theme.presentText
+                                        : theme.secondaryText,
+                                  },
+                                ]}
+                              >
+                                Present
+                              </Text>
+                            </TouchableOpacity>
 
-                        <TouchableOpacity
-                          style={[
-                            styles.statusButton,
-                            {
-                              backgroundColor:
-                                attendance[`${subject.subject}_${type}`]?.status === "absent"
-                                  ? theme.absent
-                                  : theme.background,
-                            },
-                          ]}
-                          onPress={() => toggleAttendance(subject.subject, type)}
-                        >
-                          <Ionicons
-                            name={
-                              attendance[`${subject.subject}_${type}`]?.status === "absent"
-                                ? "close-circle"
-                                : "close-circle-outline"
-                            }
-                            size={24}
-                            color={
-                              attendance[`${subject.subject}_${type}`]?.status === "absent"
-                                ? theme.absentText
-                                : theme.secondaryText
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.statusText,
-                              {
-                                color:
+                            <TouchableOpacity
+                              style={[
+                                styles.statusButton,
+                                {
+                                  backgroundColor:
+                                    attendance[`${subject.subject}_${type}`]?.status === "absent"
+                                      ? theme.absent
+                                      : theme.background,
+                                },
+                              ]}
+                              onPress={() => toggleAttendance(subject.subject, type)}
+                            >
+                              <Ionicons
+                                name={
+                                  attendance[`${subject.subject}_${type}`]?.status === "absent"
+                                    ? "close-circle"
+                                    : "close-circle-outline"
+                                }
+                                size={24}
+                                color={
                                   attendance[`${subject.subject}_${type}`]?.status === "absent"
                                     ? theme.absentText
-                                    : theme.secondaryText,
-                              },
-                            ]}
-                          >
-                            Absent
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+                                    : theme.secondaryText
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.statusText,
+                                  {
+                                    color:
+                                      attendance[`${subject.subject}_${type}`]?.status === "absent"
+                                        ? theme.absentText
+                                        : theme.secondaryText,
+                                  },
+                                ]}
+                              >
+                                Absent
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
                     </View>
-                  ))}
-                </View>
-              </View>
-            ))}
+                  </View>
+                ))}
 
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: theme.primary }]}
-              onPress={saveAttendanceRecords}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <Ionicons name="save-outline" size={20} color="white" />
-                  <Text style={styles.saveButtonText}>Save Attendance</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Add the AttendanceCalculator component here */}
-            <AttendanceCalculator
-              subject={timetable.length > 0 ? timetable[0].subject : null}
-              timetable={timetable}
-              attendance={attendance}
-              selectedDate={selectedDate}
-            />
-            {renderImportedDataInfo()}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                <TouchableOpacity
+                  style={[styles.saveButton, { backgroundColor: theme.primary }]}
+                  onPress={saveAttendanceRecords}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="save-outline" size={20} color="white" />
+                      <Text style={styles.saveButtonText}>Save Attendance</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   )
 }
 
-// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
-  safeArea: {
+  fullScreenContainer: {
     flex: 1,
   },
   container: {
     flex: 1,
-    padding: spacing.screenPadding,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  statusBarSpacer: {
+    height: 44, // Android status bar height or iOS safe area
+    width: "100%",
+  },
+  circle: {
+    position: "absolute",
+    borderRadius: 9999,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -100,
+    right: -100,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    top: 200,
+    left: -75,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    bottom: 150,
+    right: -50,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logoCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  headerText: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  appSubtitle: {
+    fontSize: 14,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   successMessage: {
     position: "absolute",
     top: 90,
-    left: spacing.screenPadding,
-    right: spacing.screenPadding,
+    left: 16,
+    right: 16,
     zIndex: 100,
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.sm,
-    borderRadius: spacing.borderRadius.large,
-    ...createShadow(2),
+    padding: 8,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   successText: {
-    marginLeft: spacing.sm,
+    marginLeft: 8,
     fontWeight: "600",
     fontSize: 14,
   },
   calendarContainer: {
-    borderRadius: spacing.borderRadius.large,
+    borderRadius: 8,
     overflow: "hidden",
-    marginBottom: spacing.md,
-    ...createShadow(1),
-    padding: spacing.md,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+    padding: 16,
   },
   calendarHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   calendarNavButton: {
-    padding: spacing.sm,
+    padding: 8,
     borderRadius: 20,
     width: 36,
     height: 36,
@@ -649,8 +741,8 @@ const styles = StyleSheet.create({
   },
   weekdayHeader: {
     flexDirection: "row",
-    marginBottom: spacing.sm,
-    paddingBottom: spacing.sm,
+    marginBottom: 8,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(0,0,0,0.05)",
   },
@@ -673,7 +765,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: spacing.borderRadius.large,
+    borderRadius: 8,
   },
   dayText: {
     fontSize: 14,
@@ -687,7 +779,7 @@ const styles = StyleSheet.create({
     bottom: 4,
   },
   dateInfo: {
-    marginBottom: spacing.md,
+    marginBottom: 16,
     alignItems: "center",
   },
   dateText: {
@@ -697,16 +789,23 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
   subjectCard: {
-    borderRadius: spacing.borderRadius.large,
-    marginBottom: spacing.md,
-    ...createShadow(1),
+    borderRadius: 8,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
     overflow: "hidden",
   },
   subjectHeader: {
-    padding: spacing.md,
+    padding: 16,
     borderBottomWidth: 1,
   },
   subjectName: {
@@ -714,12 +813,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   attendanceOptions: {
-    padding: spacing.md,
+    padding: 16,
   },
   attendanceRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
   typeContainer: {
     width: 80,
@@ -736,71 +835,80 @@ const styles = StyleSheet.create({
   statusButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.borderRadius.large,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     flex: 1,
-    marginHorizontal: spacing.xs,
+    marginHorizontal: 4,
     justifyContent: "center",
   },
   statusText: {
-    marginLeft: spacing.sm,
+    marginLeft: 8,
     fontWeight: "500",
   },
   saveButton: {
     flexDirection: "row",
     height: 54,
-    borderRadius: spacing.borderRadius.large,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
-    ...createShadow(2),
+    marginTop: 16,
+    marginBottom: 32,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   saveButtonText: {
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
-    marginLeft: spacing.sm,
+    marginLeft: 8,
   },
   loadingContainer: {
-    padding: spacing.xl,
+    padding: 32,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    marginTop: spacing.md,
+    marginTop: 16,
     fontSize: 16,
   },
   emptyState: {
-    padding: spacing.xl,
-    borderRadius: spacing.borderRadius.large,
+    padding: 32,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: spacing.md,
+    marginTop: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  emptyStateIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 16,
     textAlign: "center",
-  },
-  importedDataCard: {
-    borderRadius: spacing.borderRadius.large,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    ...createShadow(1),
-  },
-  importedDataTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: spacing.xs,
-  },
-  importedDataSubtitle: {
-    fontSize: 14,
+    lineHeight: 22,
   },
 })

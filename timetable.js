@@ -1,4 +1,5 @@
 export const Timetable = {
+  semester1: {
     A: {
       shared: {
         Monday: [
@@ -402,7 +403,7 @@ export const Timetable = {
           Monday: [],
           Tuesday: [{ subject: "EC", type: "lab", room: "106", time: "10:45 - 12:45" }],
           Wednesday: [],
-          Thursday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:455" }],
+          Thursday: [{ subject: "DS", type: "lab", room: "502", time: "10:45 - 12:45" }],
           Friday: [
             { subject: "TS", type: "lab", room: "202", time: "01:45 - 03:45" },
             { subject: "DECA", type: "lab", room: "305", time: "04:00 - 05:00" },
@@ -436,7 +437,7 @@ export const Timetable = {
           Friday: [{ subject: "EC", type: "lab", room: "106", time: "08:30 - 10:30" }],
         },
       },
-    },    
+    },
     H: {
       shared: {
         Monday: [
@@ -498,91 +499,507 @@ export const Timetable = {
         },
       },
     },
+  },
+  semester2: {
+    A: {
+      shared: {
+        Monday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+          { subject: "MDM", type: "theory", room: "508", time: "11:45 - 12:45" },
+          { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
+          { subject: "OS", type: "theory", room: "508", time: "02:45 - 03:45" },
+        ],
+        Tuesday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+          { subject: "OS", type: "theory", room: "508", time: "11:45 - 12:45" },
+          { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
+        ],
+        Wednesday: [
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+          { subject: "PCS", type: "theory", room: "508", time: "11:45 - 12:45" },
+          { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
+        ],
+        Thursday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
+          { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" },
+        ],
+        Friday: [
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+          { subject: "CCN", type: "theory", room: "508", time: "11:45 - 12:45" },
+          { subject: "OS", type: "theory", room: "508", time: "01:45 - 02:45" },
+          { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" },
+          { subject: "LLC", type: "theory", room: "508", time: "05:00 - 06:00" },
+        ],
+      },
+      batches: {
+        AA: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "04:00 - 06:00" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "10:45 - 12:45" }],
+        },
+        AB: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "04:00 - 06:00" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-3", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "10:45 - 12:45" }],
+        },
+        A3: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "04:00 - 06:00" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "609", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "10:45 - 12:45" }],
+        },
+        AD: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "04:00 - 06:00" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "702-B", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "10:45 - 12:45" }],
+        },
+      },
+    },
+    // Add other divisions for semester 2 as needed
+    B: {
+      shared: {
+        Monday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "CCN", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "OS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "DAA", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [
+          { subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+      },
+      batches: {
+        B1: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        BB: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        BC: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        BD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    // Continue with other divisions...
+    C: {
+      shared: {
+        Monday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "CCN", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "OS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "MDM", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
+      },
+      batches: {
+        CA: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        CB: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        CC: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        CD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    D: {
+      shared: {
+        Monday: [
+          { subject: "MDM", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "OS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "CCN", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "DAA", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [
+          { subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+      },
+      batches: {
+        DA: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        DB: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        DC: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        DD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    E: {
+      shared: {
+        Monday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "CCN", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "OS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
+      },
+      batches: {
+        EA: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        EB: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        EC: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        ED: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    F: {
+      shared: {
+        Monday: [
+          { subject: "MDM", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "CCN", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "OS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "DAA", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [
+          { subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+      },
+      batches: {
+        FA: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        FB: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        FC: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        FD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    G: {
+      shared: {
+        Monday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "OS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "CCN", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "MDM", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
+      },
+      batches: {
+        GA: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        GB: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        GC: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        GD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+    H: {
+      shared: {
+        Monday: [
+          { subject: "MDM", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Tuesday: [
+          { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
+          { subject: "CCN", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Wednesday: [
+          { subject: "OS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Thursday: [
+          { subject: "PCS", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "HSM-II", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+        Friday: [
+          { subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" },
+          { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
+        ],
+      },
+      batches: {
+        HA: {
+          Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        HB: {
+          Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        HC: {
+          Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+        HD: {
+          Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
+          Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
+          Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
+          Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
+          Friday: [],
+        },
+      },
+    },
+  },
+  // Add more semesters as needed
+  semester3: {
+    // Add semester 3 timetables
+  },
+  semester4: {
+    // Add semester 4 timetables
+  },
+  semester5: {
+    // Add semester 5 timetables
+  },
+  semester6: {
+    // Add semester 6 timetables
+  },
+  semester7: {
+    // Add semester 7 timetables
+  },
+  semester8: {
+    // Add semester 8 timetables
+  },
+}
 
-    // A: {
-    //   shared: {
-    //     Monday: [
-    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
-    //       { subject: "MDM", type: "theory", room: "508", time: "10:45 - 11:45" },
-    //       { subject: "MDM", type: "theory", room: "508", time: "11:45 - 12:45" },
-    //       { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
-    //       { subject: "OS", type: "theory", room: "508", time: "02:45 - 03:45" }
-    //     ],
-    //     Tuesday: [
-    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
-    //       { subject: "SMCS", type: "theory", room: "508", time: "09:30 - 10:30" },
-    //       { subject: "DAA", type: "theory", room: "508", time: "10:45 - 11:45" },
-    //       { subject: "OS", type: "theory", room: "508", time: "11:45 - 12:45" },
-    //       { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
-    //     ],
-    //     Wednesday: [
-    //       { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
-    //       { subject: "PCS", type: "theory", room: "508", time: "11:45 - 12:45" },
-    //       { subject: "MDM", type: "theory", room: "508", time: "04:00 - 06:00" },
-    //     ],
-    //     Thursday: [
-    //       { subject: "FOM-II", type: "theory", room: "509", time: "09:30 - 10:30" },
-    //       { subject: "CCN", type: "theory", room: "508", time: "01:45 - 02:45" },
-    //       { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
-    //       { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" }
-    //     ],
-    //     Friday: [
-    //       { subject: "SMCS", type: "theory", room: "508", time: "10:45 - 11:45" },
-    //       { subject: "CCN", type: "theory", room: "508", time: "11:45 - 12:45" },
-    //       { subject: "OS", type: "theory", room: "508", time: "01:45 - 02:45" },
-    //       { subject: "DAA", type: "theory", room: "508", time: "02:45 - 03:45" },
-    //       { subject: "HSM-II", type: "theory", room: "508", time: "04:00 - 05:00" },
-    //       { subject: "LLC", type: "theory", room: "508", time: "05:00 - 06:00" }
-    //     ]
-    //   },
-    //   batches: {
-    //     AA: {
-    //       Monday: [{ subject: "PCS", type: "lab", room: "601", time: "04:00 - 06:00" }],
-    //       Tuesday: [{ subject: "CCN", type: "lab", room: "601", time: "01:45 - 03:45" }],
-    //       Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
-    //       Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "10:45 - 12:45" }],
-    //     },
-    //     AB: {
-    //       Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "04:00 - 06:00" }],
-    //       Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
-    //       Wednesday: [{ subject: "CCN", type: "lab", room: "603-3", time: "01:45 - 03:45" }],
-    //       Thursday: [{ subject: "OS", type: "lab", room: "608", time: "10:45 - 12:45" }],
-    //     },
-    //     AC: {
-    //       Monday: [{ subject: "OS", type: "lab", room: "608", time: "04:00 - 06:00" }],
-    //       Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
-    //       Wednesday: [{ subject: "PCS", type: "lab", room: "609", time: "01:45 - 03:45" }],
-    //       Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "10:45 - 12:45" }],
-    //     },
-    //     AD: {
-    //       Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "04:00 - 06:00" }],
-    //       Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
-    //       Wednesday: [{ subject: "DAA", type: "lab", room: "702-B", time: "01:45 - 03:45" }],
-    //       Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "10:45 - 12:45" }],
-    //     }
-    //   }
-    // }
-    
+export const Divisions = ["A", "B", "C", "D", "E", "F", "G", "H"]
+
+// Updated subject lists for different semesters
+export const SubjectsBySemester = {
+  semester1: ["DECA", "PSOOP", "BEE", "DS", "EG", "EM", "EP", "EC", "IKS", "UHV", "TS", "SS1"],
+  semester2: ["FOM-II", "MDM", "CCN", "OS", "DAA", "SMCS", "PCS", "HSM-II", "LLC"],
+  semester3: ["DSA", "DBMS", "COA", "SE", "MATHS-III", "EVS", "JAVA"],
+  semester4: ["CN", "TOC", "AI", "ML", "WEB", "MOBILE", "CLOUD"],
+  semester5: ["COMPILER", "GRAPHICS", "SECURITY", "IOT", "BLOCKCHAIN"],
+  semester6: ["PROJECT-I", "INTERNSHIP", "RESEARCH", "ELECTIVE-I"],
+  semester7: ["PROJECT-II", "ADVANCED-AI", "QUANTUM", "ELECTIVE-II"],
+  semester8: ["THESIS", "CAPSTONE", "INDUSTRY", "ELECTIVE-III"],
+}
+
+// Fallback to semester1 subjects if semester not found
+export const AllSubjects = SubjectsBySemester.semester1
+
+export const getDivisionTimetable = (division, batch, day, semester = "1") => {
+  const semesterKey = `semester${semester}`
+  const semesterData = Timetable[semesterKey]
+
+  if (!semesterData || !semesterData[division]) {
+    console.warn(`No timetable found for semester ${semester}, division ${division}`)
+    return []
   }
-  
-  export const Divisions = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
-export const AllSubjects = ["DECA", "PSOOP", "BEE", "DS", "EG", "EM", "EP", "EC", "IKS", "UHV", "TS", "SS1"]
-
-export const getDivisionTimetable = (division, batch, day) => {
-  const divisionSchedule = Timetable[division]
-  if (!divisionSchedule) return []
-
+  const divisionSchedule = semesterData[division]
   const sharedSchedule = divisionSchedule.shared[day] || []
   const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
 
   return [...sharedSchedule, ...batchSchedule]
 }
 
-export const getDaySubjects = (division, batch, day) => {
-  const divisionSchedule = Timetable[division]
-  if (!divisionSchedule) return []
+export const getDaySubjects = (division, batch, day, semester = "1") => {
+  const semesterKey = `semester${semester}`
+  const semesterData = Timetable[semesterKey]
 
+  if (!semesterData || !semesterData[division]) {
+    console.warn(`No timetable found for semester ${semester}, division ${division}`)
+    return []
+  }
+
+  const divisionSchedule = semesterData[division]
   const sharedSchedule = divisionSchedule.shared[day] || []
   const batchSchedule = divisionSchedule.batches[batch]?.[day] || []
 
@@ -605,9 +1022,15 @@ export const getDaySubjects = (division, batch, day) => {
   }))
 }
 
-export const hasSubject = (division, batch, subject) => {
-  const divisionSchedule = Timetable[division]
-  if (!divisionSchedule) return false
+export const hasSubject = (division, batch, subject, semester = "1") => {
+  const semesterKey = `semester${semester}`
+  const semesterData = Timetable[semesterKey]
+
+  if (!semesterData || !semesterData[division]) {
+    return false
+  }
+
+  const divisionSchedule = semesterData[division]
 
   const checkSchedule = (schedule) => {
     return Object.values(schedule).some((daySubjects) => daySubjects.some((item) => item.subject === subject))
@@ -616,6 +1039,23 @@ export const hasSubject = (division, batch, subject) => {
   return checkSchedule(divisionSchedule.shared) || checkSchedule(divisionSchedule.batches[batch])
 }
 
-export const getBatches = (division) => {
-  return Object.keys(Timetable[division]?.batches || {})
+export const getBatches = (division, semester = "1") => {
+  const semesterKey = `semester${semester}`
+  const semesterData = Timetable[semesterKey]
+
+  if (!semesterData || !semesterData[division]) {
+    return []
+  }
+
+  return Object.keys(semesterData[division]?.batches || {})
+}
+
+export const getSubjectsForSemester = (semester = "1") => {
+  const semesterKey = `semester${semester}`
+  return SubjectsBySemester[semesterKey] || SubjectsBySemester.semester1
+}
+
+export const getSemesterTimetable = (semester = "1") => {
+  const semesterKey = `semester${semester}`
+  return Timetable[semesterKey] || Timetable.semester1
 }

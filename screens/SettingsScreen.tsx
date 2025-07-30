@@ -38,6 +38,7 @@ import { endOfMonth, format, parseISO } from "date-fns"
 import DatePicker from "../components/DatePicker"
 import MonthPicker from "../components/MonthPicker"
 import { LinearGradient } from "expo-linear-gradient"
+import { getSemesterSettings, saveSemesterSettings } from "../firebase/semesterService"
 
 const Semesters = ["1", "2", "3", "4", "5", "6", "7", "8"]
 
@@ -79,13 +80,13 @@ export default function SettingsScreen() {
   const [selectedMonth, setSelectedMonth] = useState(new Date())
 
   // Semester dates state
-  const [semesterStartDate, setSemesterStartDate] = useState("2025-01-20")
-  const [semesterEndDate, setSemesterEndDate] = useState("2025-05-16")
+  const [semesterStartDate, setSemesterStartDate] = useState("2025-06-01")
+  const [semesterEndDate, setSemesterEndDate] = useState("2025-08-31")
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false)
   const [datePickerMode, setDatePickerMode] = useState<"start" | "end">("start")
 
-  // Load user data
-  const loadUserData = () => {
+  // Load user data and semester settings
+  const loadUserData = async () => {
     if (user) {
       setDisplayName(user.displayName || "")
       setProfileImage(user.photoURL)
@@ -94,8 +95,18 @@ export default function SettingsScreen() {
         setSelectedDivision(userProfile.division || "")
         setSelectedBatch(userProfile.batch || "")
         setSelectedSemester(userProfile.semester || "")
-        setSemesterStartDate(userProfile.semesterStartDate || "2025-01-20")
-        setSemesterEndDate(userProfile.semesterEndDate || "2025-05-16")
+      }
+
+      // Load semester settings
+      try {
+        const semesterSettings = await getSemesterSettings(user.uid)
+        setSemesterStartDate(semesterSettings.startDate)
+        setSemesterEndDate(semesterSettings.endDate)
+      } catch (error) {
+        console.error("Error loading semester settings:", error)
+        // Use default dates
+        setSemesterStartDate("2025-06-01")
+        setSemesterEndDate("2025-08-31")
       }
     }
   }
@@ -198,7 +209,7 @@ export default function SettingsScreen() {
     if (!user?.uid) return
     setIsLoading(true)
     try {
-      await updateUserProfile({ semesterStartDate: startDate, semesterEndDate: endDate })
+      await saveSemesterSettings(user.uid, { startDate, endDate })
       showToast({ message: "Semester dates updated", type: "success" })
     } catch (error) {
       console.error("Error saving semester dates:", error)

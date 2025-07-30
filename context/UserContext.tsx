@@ -56,8 +56,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Create a default profile if it doesn't exist
         profile = {
           setupCompleted: false,
-          semesterStartDate: "2025-01-20",
-          semesterEndDate: "2025-05-16",
+          semesterStartDate: "2025-07-01",
+        semesterEndDate: "2025-08-31",
         }
         try {
           await setDoc(doc(db, "users", userId), profile)
@@ -71,8 +71,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set a default profile even if there's an error
       setUserProfile({
         setupCompleted: false,
-        semesterStartDate: "2025-01-20",
-        semesterEndDate: "2025-05-16",
+        semesterStartDate: "2025-07-01",
+        semesterEndDate: "2025-08-31",
       })
     }
   }
@@ -143,8 +143,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Create user document in Firestore
       const defaultProfile: UserProfile = {
         setupCompleted: false,
-        semesterStartDate: "2025-01-20",
-        semesterEndDate: "2025-05-16",
+        semesterStartDate: "2025-07-01",
+        semesterEndDate: "2025-08-31",
       }
 
       await setDoc(doc(db, "users", userCredential.user.uid), defaultProfile)

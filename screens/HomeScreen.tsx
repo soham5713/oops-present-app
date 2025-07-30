@@ -8,29 +8,26 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Dimensions,
   RefreshControl,
+  StatusBar,
+  Dimensions,
 } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { Ionicons } from "@expo/vector-icons"
 import { useAttendance } from "../context/AttendanceContext"
-import { format, startOfMonth, endOfMonth, isSameMonth, subMonths, addMonths } from "date-fns"
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, isSameMonth, isValid } from "date-fns"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
 import { colors } from "../utils/theme"
 import { getAttendanceByDate, getAttendanceByDateRange, type AttendanceRecord } from "../firebase/attendanceService"
-import { AllSubjects } from "../timetable"
-import { BarChart, LineChart } from "react-native-chart-kit"
+import { getSemesterTimetable } from "../timetable"
 import { LinearGradient } from "expo-linear-gradient"
-// Add import for getDoc and doc
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { SafeAreaView } from "react-native-safe-area-context"
-import Header from "../components/Header"
-
-// Import the spacing utilities
-import { spacing, createShadow } from "../utils/spacing"
-// Add a new import for the AttendanceCalculator component
+import { getSemesterSettings, type SemesterSettings } from "../firebase/semesterService"
+import { getHolidays } from "../utils/holidays"
+import { BarChart, LineChart } from "react-native-chart-kit"
 import AttendanceCalculator from "../components/AttendanceCalculator"
 
 // Get screen dimensions
@@ -80,6 +77,13 @@ export default function HomeScreen() {
   const [overallLabAttendance, setOverallLabAttendance] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [semesterSettings, setSemesterSettings] = useState<SemesterSettings | null>(null)
+  const [isLoadingSemester, setIsLoadingSemester] = useState(true)
+
+  // Add state for caching data to prevent unnecessary reloads
+  const [cachedOverallStats, setCachedOverallStats] = useState<SubjectAttendance[]>([])
+  const [cachedMonthlyStats, setCachedMonthlyStats] = useState<{ [key: string]: SubjectAttendance[] }>({})
+  const [cachedTrendData, setCachedTrendData] = useState<MonthlyDataPoint[]>([])
 
   // Subject colors for charts
   const subjectColors = [
@@ -95,46 +99,166 @@ export default function HomeScreen() {
     "#FF595E",
   ]
 
-  // Add state for caching data to prevent unnecessary reloads
-  const [cachedOverallStats, setCachedOverallStats] = useState<SubjectAttendance[]>([])
-  const [cachedMonthlyStats, setCachedMonthlyStats] = useState<{ [key: string]: SubjectAttendance[] }>({})
-  const [cachedTrendData, setCachedTrendData] = useState<MonthlyDataPoint[]>([])
+  // Load semester settings first
+  useEffect(() => {
+    const loadSemesterSettings = async () => {
+      if (!user?.uid) return
+
+      setIsLoadingSemester(true)
+      try {
+        console.log("[SEMESTER] Loading semester settings for user:", user.uid)
+        const settings = await getSemesterSettings(user.uid)
+        console.log("[SEMESTER] Loaded settings:", settings)
+        setSemesterSettings(settings)
+      } catch (error) {
+        console.error("[SEMESTER] Error loading semester settings:", error)
+        // Set default settings on error
+        setSemesterSettings({
+          startDate: "2025-06-01",
+          endDate: "2025-08-31",
+        })
+      } finally {
+        setIsLoadingSemester(false)
+      }
+    }
+
+    loadSemesterSettings()
+  }, [user?.uid])
+
+  // Get subjects for the user's division, batch, and semester
+  const getUserSubjects = () => {
+    if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) {
+      console.log("[SUBJECTS] Missing user profile data:", {
+        division: userProfile?.division,
+        batch: userProfile?.batch,
+        semester: userProfile?.semester,
+      })
+      return []
+    }
+
+    const subjects = new Set<string>()
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+    try {
+      // Get semester-specific timetable
+      const semesterTimetable = getSemesterTimetable(userProfile.semester)
+
+      if (!semesterTimetable || !semesterTimetable[userProfile.division]) {
+        console.log("[SUBJECTS] No timetable found for semester/division:", {
+          semester: userProfile.semester,
+          division: userProfile.division,
+        })
+        return []
+      }
+
+      const divisionData = semesterTimetable[userProfile.division]
+
+      // Get subjects from shared schedule
+      days.forEach((day) => {
+        const sharedSubjects = divisionData.shared?.[day] || []
+        sharedSubjects.forEach((subject: any) => {
+          if (subject.subject) {
+            subjects.add(subject.subject)
+          }
+        })
+      })
+
+      // Get subjects from batch-specific schedule
+      const batchData = divisionData.batches?.[userProfile.batch]
+      if (batchData) {
+        days.forEach((day) => {
+          const batchSubjects = batchData[day] || []
+          batchSubjects.forEach((subject: any) => {
+            if (subject.subject) {
+              subjects.add(subject.subject)
+            }
+          })
+        })
+      }
+
+      const subjectArray = Array.from(subjects)
+      console.log("[SUBJECTS] Found subjects for semester", userProfile.semester, ":", subjectArray)
+      return subjectArray
+    } catch (error) {
+      console.error("[SUBJECTS] Error getting subjects:", error)
+      return []
+    }
+  }
+
+  // Helper function to check if a date should be excluded (holidays or Sundays)
+  const shouldExcludeDate = (dateString: string): boolean => {
+    try {
+      const date = new Date(dateString)
+      if (!isValid(date)) {
+        console.warn("[DATE] Invalid date:", dateString)
+        return true
+      }
+
+      const dayOfWeek = date.getDay()
+      const holidays = getHolidays()
+      const isHolidayDate = holidays.includes(dateString)
+
+      // Exclude Sundays (0) and holidays
+      return dayOfWeek === 0 || isHolidayDate
+    } catch (error) {
+      console.error("[DATE] Error checking date exclusion:", error)
+      return true
+    }
+  }
 
   // Load attendance statistics
   const loadAttendanceData = async () => {
-    if (!user?.uid) return
-
-    if (activeTab === "monthly") {
+    if (!user?.uid || !userProfile?.division || !userProfile?.batch || !userProfile?.semester || isLoadingSemester) {
+      console.log("[LOAD] Missing required data:", {
+        userId: !!user?.uid,
+        division: userProfile?.division,
+        batch: userProfile?.batch,
+        semester: userProfile?.semester,
+        isLoadingSemester,
+      })
+      return
     }
 
+    console.log(`[LOAD] Starting to load ${activeTab} attendance data`)
     setIsLoading(true)
     setError(null)
 
     try {
       if (activeTab === "overall") {
-        // For overall tab, fetch all attendance records directly from Firebase
         await loadOverallAttendance(user.uid)
       } else if (activeTab === "monthly") {
-        // For monthly tab, always load fresh data
         await loadMonthlyAttendance(user.uid, selectedMonth)
       }
 
-      // Load trend data if not already loaded
-      if (trendData.length === 0) {
+      // Load trend data only once
+      if (trendData.length === 0 && activeTab === "overall") {
+        console.log("[LOAD] Loading trend data")
         const newTrendData = await loadAttendanceTrend(user.uid)
         setTrendData(newTrendData)
       }
 
-      // Count manual records
-      const todayRecords = await getAttendanceByDate(user.uid, format(new Date(), "yyyy-MM-dd"))
-      const manualCount = todayRecords.filter((record) => record.isManual || record.notes?.includes("[MANUAL]")).length
-      setManualRecordsCount(manualCount)
+      // Load today's manual records count
+      try {
+        const todayRecords = await getAttendanceByDate(user.uid, format(new Date(), "yyyy-MM-dd"))
+        const manualCount = todayRecords.filter(
+          (record) => record.isManual || record.notes?.includes("[MANUAL]"),
+        ).length
+        setManualRecordsCount(manualCount)
+      } catch (error) {
+        console.error("[LOAD] Error loading manual records count:", error)
+      }
+
+      console.log(`[LOAD] Successfully loaded ${activeTab} attendance data`)
     } catch (error) {
-      console.error("[ERROR] Error loading attendance data:", error)
-      if (error instanceof Error && error.toString().includes("requires an index")) {
-        setError(
-          "Firebase index required. Please follow the instructions in the console to create the necessary index.",
-        )
+      console.error("[LOAD] Error loading attendance data:", error)
+      if (error instanceof Error) {
+        if (error.toString().includes("requires an index")) {
+          setError(
+            "Firebase index required. Please follow the instructions in the console to create the necessary index.",
+          )
+        } else {
+          setError(`Failed to load attendance data: ${error.message}`)
+        }
       } else {
         setError("Failed to load attendance data. Please try again.")
       }
@@ -144,17 +268,32 @@ export default function HomeScreen() {
     }
   }
 
-  // Load overall attendance (all records)
+  // Load overall attendance (semester-wide)
   const loadOverallAttendance = async (userId: string) => {
     try {
-      // Query all attendance records for this user
-      const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", userId))
-      const querySnapshot = await getDocs(attendanceQuery)
+      console.log("[OVERALL] Loading overall attendance")
+
+      // Get semester settings
+      const startDate = semesterSettings?.startDate || "2025-06-01"
+      const endDate = semesterSettings?.endDate || "2025-08-31"
+
+      console.log("[OVERALL] Using date range:", { startDate, endDate })
+
+      // Get user's subjects based on their division/batch/semester
+      const userSubjects = getUserSubjects()
+
+      if (userSubjects.length === 0) {
+        console.log("[OVERALL] No subjects found for user's division/batch/semester")
+        setOverallStats([])
+        setOverallTheoryAttendance(0)
+        setOverallLabAttendance(0)
+        return
+      }
 
       // Initialize stats for all subjects
       const stats: { [key: string]: SubjectAttendance } = {}
 
-      AllSubjects.forEach((subject) => {
+      userSubjects.forEach((subject) => {
         stats[subject] = {
           subject,
           theoryTotal: 0,
@@ -172,41 +311,47 @@ export default function HomeScreen() {
         }
       })
 
-      // Process all attendance records
-      querySnapshot.forEach((doc) => {
-        const data = doc.data()
-        if (data.records && Array.isArray(data.records)) {
-          data.records.forEach((record: AttendanceRecord) => {
-            if (!stats[record.subject]) {
-              // Skip if subject is not in our list
-              return
-            }
+      // Get attendance records for the semester period
+      const recordsByDate = await getAttendanceByDateRange(userId, startDate, endDate)
+      console.log(`[OVERALL] Retrieved ${Object.keys(recordsByDate).length} days of records`)
 
-            if (record.type === "theory") {
-              stats[record.subject].theoryTotal++
-              if (record.status === "present") {
-                stats[record.subject].theoryPresent++
-              }
-            } else if (record.type === "lab") {
-              stats[record.subject].labTotal++
-              if (record.status === "present") {
-                stats[record.subject].labPresent++
-              }
-            }
-          })
+      // Process all attendance records
+      Object.entries(recordsByDate).forEach(([date, dateRecords]) => {
+        // Skip if date should be excluded (holidays/Sundays)
+        if (shouldExcludeDate(date)) {
+          return
         }
+
+        dateRecords.forEach((record: AttendanceRecord) => {
+          if (!stats[record.subject]) {
+            // Skip if subject is not in our list
+            return
+          }
+
+          if (record.type === "theory") {
+            stats[record.subject].theoryTotal++
+            if (record.status === "present") {
+              stats[record.subject].theoryPresent++
+            }
+          } else if (record.type === "lab") {
+            stats[record.subject].labTotal++
+            if (record.status === "present") {
+              stats[record.subject].labPresent++
+            }
+          }
+        })
       })
 
       // Fetch and add imported attendance data
-      for (const subject of AllSubjects) {
+      for (const subject of userSubjects) {
         try {
           const importedDataRef = doc(db, "importedAttendance", `${userId}_${subject}`)
           const importedDoc = await getDoc(importedDataRef)
 
           if (importedDoc.exists()) {
             const data = importedDoc.data()
+            console.log(`[OVERALL] Found imported data for ${subject}:`, data)
 
-            // Add imported data to the stats
             stats[subject].importedData = {
               theoryTotal: data.theoryTotal || 0,
               theoryAttended: data.theoryAttended || 0,
@@ -221,7 +366,7 @@ export default function HomeScreen() {
             stats[subject].labPresent += data.labAttended || 0
           }
         } catch (error) {
-          console.error(`Error fetching imported data for ${subject}:`, error)
+          console.error(`[OVERALL] Error fetching imported data for ${subject}:`, error)
         }
       }
 
@@ -241,29 +386,39 @@ export default function HomeScreen() {
         stat.color = subjectColors[index % subjectColors.length]
       })
 
-      setOverallStats(filteredStats)
+      console.log(`[OVERALL] Final stats for ${filteredStats.length} subjects:`)
+      filteredStats.forEach((stat) => {
+        console.log(
+          `  ${stat.subject}: Theory ${stat.theoryPresent}/${stat.theoryTotal} (${stat.theoryPercentage}%), Lab ${stat.labPresent}/${stat.labTotal} (${stat.labPercentage}%)`,
+        )
+      })
 
-      // Calculate overall theory attendance percentage
+      setOverallStats(filteredStats)
+      setCachedOverallStats(filteredStats)
+
+      // Calculate overall attendance percentages
       const totalTheoryPresent = filteredStats.reduce((sum, stat) => sum + stat.theoryPresent, 0)
       const totalTheoryClasses = filteredStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)
       const overallTheoryPercentage =
         totalTheoryClasses > 0 ? Math.round((totalTheoryPresent / totalTheoryClasses) * 100) : 0
       setOverallTheoryAttendance(overallTheoryPercentage)
 
-      // Calculate overall lab attendance percentage
       const totalLabPresent = filteredStats.reduce((sum, stat) => sum + stat.labPresent, 0)
       const totalLabClasses = filteredStats.reduce((sum, stat) => sum + stat.labTotal, 0)
       const overallLabPercentage = totalLabClasses > 0 ? Math.round((totalLabPresent / totalLabClasses) * 100) : 0
       setOverallLabAttendance(overallLabPercentage)
+
+      console.log(`[OVERALL] Overall percentages - Theory: ${overallTheoryPercentage}%, Lab: ${overallLabPercentage}%`)
     } catch (error) {
-      console.error("Error loading overall attendance:", error)
+      console.error("[OVERALL] Error loading overall attendance:", error)
       throw error
     }
   }
 
-  // Update the loadMonthlyAttendance function to exclude imported data for the current month
+  // Load monthly attendance
   const loadMonthlyAttendance = async (userId: string, month: Date) => {
     try {
+      console.log(`[MONTHLY] Loading attendance for ${format(month, "MMMM yyyy")}`)
 
       // Clear any existing monthly stats first to prevent showing stale data
       setMonthlyStats([])
@@ -273,16 +428,49 @@ export default function HomeScreen() {
       const startDateStr = format(monthStart, "yyyy-MM-dd")
       const endDateStr = format(monthEnd, "yyyy-MM-dd")
 
+      // Get semester settings
+      const semesterStart = semesterSettings?.startDate || "2025-06-01"
+      const semesterEnd = semesterSettings?.endDate || "2025-08-31"
+
+      // Ensure we only look at dates within the semester
+      const actualStartDate = startDateStr > semesterStart ? startDateStr : semesterStart
+      const actualEndDate = endDateStr < semesterEnd ? endDateStr : semesterEnd
+
+      console.log(`[MONTHLY] Date range: ${actualStartDate} to ${actualEndDate}`)
+
+      // If the month is outside the semester, return empty
+      if (actualStartDate > actualEndDate) {
+        console.log(`[MONTHLY] Month ${format(month, "MMMM yyyy")} is outside semester range`)
+        setMonthlyStats([])
+        return
+      }
+
+      // Check if we have cached data for this month
+      const monthKey = format(month, "yyyy-MM")
+      if (cachedMonthlyStats[monthKey]) {
+        console.log(`[MONTHLY] Using cached data for ${format(month, "MMMM yyyy")}`)
+        setMonthlyStats(cachedMonthlyStats[monthKey])
+        return
+      }
+
+      // Get user's subjects
+      const userSubjects = getUserSubjects()
+
+      if (userSubjects.length === 0) {
+        console.log("[MONTHLY] No subjects found")
+        setMonthlyStats([])
+        return
+      }
 
       // Get records for specific date range
-      const recordsByDate = await getAttendanceByDateRange(userId, startDateStr, endDateStr)
+      const recordsByDate = await getAttendanceByDateRange(userId, actualStartDate, actualEndDate)
 
       // Check if there are any records for this month
       const hasRecordsForMonth = Object.keys(recordsByDate).length > 0
 
       // If no records exist for this month, set empty stats and return
       if (!hasRecordsForMonth) {
-        console.log(`[LOAD] No attendance records found for ${format(month, "MMMM yyyy")}`)
+        console.log(`[MONTHLY] No attendance records found for ${format(month, "MMMM yyyy")}`)
         setMonthlyStats([])
         return
       }
@@ -290,31 +478,40 @@ export default function HomeScreen() {
       // Initialize stats for subjects that have records this month
       const stats: { [key: string]: SubjectAttendance } = {}
 
+      userSubjects.forEach((subject) => {
+        stats[subject] = {
+          subject,
+          theoryTotal: 0,
+          theoryPresent: 0,
+          theoryPercentage: 0,
+          labTotal: 0,
+          labPresent: 0,
+          labPercentage: 0,
+          importedData: {
+            theoryTotal: 0,
+            theoryAttended: 0,
+            labTotal: 0,
+            labAttended: 0,
+          },
+        }
+      })
+
       // Process all records for this month
-      Object.values(recordsByDate).forEach((dateRecords) => {
+      Object.entries(recordsByDate).forEach(([date, dateRecords]) => {
+        // Skip if date should be excluded (holidays/Sundays)
+        if (shouldExcludeDate(date)) {
+          return
+        }
+
         dateRecords.forEach((record) => {
           // Skip imported data
           if (record.notes?.includes("[IMPORTED]")) {
             return
           }
 
-          // Initialize subject stats if not already done
           if (!stats[record.subject]) {
-            stats[record.subject] = {
-              subject: record.subject,
-              theoryTotal: 0,
-              theoryPresent: 0,
-              theoryPercentage: 0,
-              labTotal: 0,
-              labPresent: 0,
-              labPercentage: 0,
-              importedData: {
-                theoryTotal: 0,
-                theoryAttended: 0,
-                labTotal: 0,
-                labAttended: 0,
-              },
-            }
+            // Skip if subject is not in our list
+            return
           }
 
           if (record.type === "theory") {
@@ -352,21 +549,34 @@ export default function HomeScreen() {
         }
       })
 
-      console.log(`[LOAD] Loaded ${filteredStats.length} subjects for ${format(month, "MMMM yyyy")}`)
+      console.log(`[MONTHLY] Final stats for ${filteredStats.length} subjects in ${format(month, "MMMM yyyy")}`)
+
+      // Cache the results
+      setCachedMonthlyStats((prev) => ({
+        ...prev,
+        [monthKey]: filteredStats,
+      }))
 
       // Update state with the new stats
       setMonthlyStats(filteredStats)
     } catch (error) {
-      console.error(`[ERROR] Error loading monthly attendance for ${format(month, "MMMM yyyy")}:`, error)
-      // Make sure to set empty stats on error to avoid showing stale data
+      console.error(`[MONTHLY] Error loading monthly attendance for ${format(month, "MMMM yyyy")}:`, error)
       setMonthlyStats([])
       throw error
     }
   }
 
-  // Optimize the loadAttendanceTrend function to be more efficient
+  // Load attendance trend (6 months)
   const loadAttendanceTrend = async (userId: string): Promise<MonthlyDataPoint[]> => {
     try {
+      console.log("[TREND] Loading attendance trend")
+
+      // If we have cached trend data, use it
+      if (cachedTrendData.length > 0) {
+        console.log("[TREND] Using cached trend data")
+        return cachedTrendData
+      }
+
       const now = new Date()
       const sixMonthsAgo = subMonths(now, 5) // Get 6 months including current
 
@@ -376,11 +586,23 @@ export default function HomeScreen() {
         months.push(addMonths(sixMonthsAgo, i))
       }
 
+      // Get semester settings
+      const semesterStart = semesterSettings?.startDate || "2025-06-01"
+      const semesterEnd = semesterSettings?.endDate || "2025-08-31"
+
+      // Get user's subjects
+      const userSubjects = getUserSubjects()
+
       // Get attendance data for each month
       const trendData: MonthlyDataPoint[] = []
 
       // Fetch all attendance data at once to reduce Firebase calls
-      const attendanceQuery = query(collection(db, "attendance"), where("userId", "==", userId))
+      const attendanceQuery = query(
+        collection(db, "attendance"),
+        where("userId", "==", userId),
+        where("date", ">=", semesterStart),
+        where("date", "<=", semesterEnd),
+      )
       const querySnapshot = await getDocs(attendanceQuery)
 
       // Store all records in memory for faster processing
@@ -399,29 +621,40 @@ export default function HomeScreen() {
         const startDateStr = format(monthStart, "yyyy-MM-dd")
         const endDateStr = format(monthEnd, "yyyy-MM-dd")
 
+        // Ensure we only look at dates within the semester
+        const actualStartDate = startDateStr > semesterStart ? startDateStr : semesterStart
+        const actualEndDate = endDateStr < semesterEnd ? endDateStr : semesterEnd
+
         let theoryPresent = 0
         let theoryTotal = 0
         let labPresent = 0
         let labTotal = 0
 
-        // Process records for this month
-        Object.entries(allRecords).forEach(([date, records]) => {
-          if (date >= startDateStr && date <= endDateStr) {
-            records.forEach((record: any) => {
-              if (record.type === "theory") {
-                theoryTotal++
-                if (record.status === "present") {
-                  theoryPresent++
+        // If month is within semester range
+        if (actualStartDate <= actualEndDate) {
+          // Process records for this month
+          Object.entries(allRecords).forEach(([date, records]) => {
+            if (date >= actualStartDate && date <= actualEndDate && !shouldExcludeDate(date)) {
+              records.forEach((record: any) => {
+                if (!userSubjects.includes(record.subject)) {
+                  return // Skip subjects not in user's timetable
                 }
-              } else if (record.type === "lab") {
-                labTotal++
-                if (record.status === "present") {
-                  labPresent++
+
+                if (record.type === "theory") {
+                  theoryTotal++
+                  if (record.status === "present") {
+                    theoryPresent++
+                  }
+                } else if (record.type === "lab") {
+                  labTotal++
+                  if (record.status === "present") {
+                    labPresent++
+                  }
                 }
-              }
-            })
-          }
-        })
+              })
+            }
+          })
+        }
 
         const theoryPercentage = theoryTotal > 0 ? Math.round((theoryPresent / theoryTotal) * 100) : 0
         const labPercentage = labTotal > 0 ? Math.round((labPresent / labTotal) * 100) : 0
@@ -433,9 +666,12 @@ export default function HomeScreen() {
         })
       }
 
+      // Cache the trend data
+      setCachedTrendData(trendData)
+
       return trendData
     } catch (error) {
-      console.error("Error loading attendance trend:", error)
+      console.error("[TREND] Error loading attendance trend:", error)
       // Return empty data with month labels if there's an error
       const now = new Date()
       const sixMonthsAgo = subMonths(now, 5)
@@ -462,11 +698,18 @@ export default function HomeScreen() {
       setCachedMonthlyStats({})
       setCachedTrendData([])
     }
-  }, [user?.uid])
+  }, [user?.uid, userProfile?.semester])
 
   // Load data when component mounts or when tab/month changes
   useEffect(() => {
-    if (user?.uid) {
+    if (
+      user?.uid &&
+      userProfile?.division &&
+      userProfile?.batch &&
+      userProfile?.semester &&
+      semesterSettings &&
+      !isLoadingSemester
+    ) {
       // Reset monthly stats when changing months to prevent showing stale data
       if (activeTab === "monthly") {
         console.log(`[EFFECT] Month changed to: ${format(selectedMonth, "MMMM yyyy")}`)
@@ -480,18 +723,34 @@ export default function HomeScreen() {
       const timer = setTimeout(() => {
         console.log(`[EFFECT] Loading data for ${activeTab} view, month: ${format(selectedMonth, "MMMM yyyy")}`)
         loadAttendanceData()
-      }, 500)
+      }, 300)
 
       return () => {
         // Clean up timer on unmount or when dependencies change
         clearTimeout(timer)
       }
     }
-  }, [user?.uid, activeTab, selectedMonth])
+  }, [
+    user?.uid,
+    userProfile?.division,
+    userProfile?.batch,
+    userProfile?.semester,
+    activeTab,
+    selectedMonth,
+    semesterSettings,
+    isLoadingSemester,
+  ])
 
   // Refresh data
   const refreshData = () => {
+    console.log("[REFRESH] Refreshing data")
     setIsRefreshing(true)
+
+    // Clear cache to force re-fetch
+    setCachedOverallStats([])
+    setCachedMonthlyStats({})
+    setCachedTrendData([])
+    setTrendData([])
 
     // Force re-fetch data
     loadAttendanceData()
@@ -509,18 +768,10 @@ export default function HomeScreen() {
     // Clear monthly stats when switching tabs to prevent showing stale data
     if (tab === "monthly") {
       setMonthlyStats([])
-      // Clear cached monthly stats to ensure fresh data
-      setCachedMonthlyStats({})
     }
 
     // Update the active tab
     setActiveTab(tab)
-
-    // Load data with a delay to ensure state updates are processed
-    setTimeout(() => {
-      console.log(`[TAB] Loading data after tab switch to ${tab}`)
-      loadAttendanceData()
-    }, 500)
   }
 
   // Update the goToPreviousMonth and goToNextMonth functions to show loading state
@@ -535,20 +786,6 @@ export default function HomeScreen() {
 
     // Update the selected month state
     setSelectedMonth(newMonth)
-
-    // Remove any cached data for the target month
-    const monthKey = format(newMonth, "yyyy-MM")
-    setCachedMonthlyStats((prev) => {
-      const newCache = { ...prev }
-      delete newCache[monthKey]
-      return newCache
-    })
-
-    // Force a fresh data load with a delay to ensure state updates are processed
-    setTimeout(() => {
-      console.log(`[NAV] Loading data for ${format(newMonth, "MMMM yyyy")} after navigation`)
-      loadAttendanceData()
-    }, 500)
   }
 
   // Similarly update goToNextMonth
@@ -564,21 +801,14 @@ export default function HomeScreen() {
 
       // Update the selected month state
       setSelectedMonth(nextMonth)
-
-      // Remove any cached data for the target month
-      const monthKey = format(nextMonth, "yyyy-MM")
-      setCachedMonthlyStats((prev) => {
-        const newCache = { ...prev }
-        delete newCache[monthKey]
-        return newCache
-      })
-
-      // Force a fresh data load with a delay to ensure state updates are processed
-      setTimeout(() => {
-        console.log(`[NAV] Loading data for ${format(nextMonth, "MMMM yyyy")} after navigation`)
-        loadAttendanceData()
-      }, 500)
     }
+  }
+
+  const getSemesterInfo = () => {
+    const startDate = semesterSettings?.startDate || "2025-06-01"
+    const endDate = semesterSettings?.endDate || "2025-08-31"
+
+    return `Semester ${userProfile?.semester || ""} attendance from ${format(new Date(startDate), "MMM d")} to ${format(new Date(endDate), "MMM d, yyyy")}`
   }
 
   // Get gradient colors based on attendance percentage
@@ -591,8 +821,6 @@ export default function HomeScreen() {
       return isDarkMode ? "#dc2626" : "#ef4444" // Red
     }
   }
-
-  // Switch tabs with animation
 
   // Prepare data for theory bar chart
   const getTheoryBarChartData = () => {
@@ -786,299 +1014,256 @@ export default function HomeScreen() {
     )
   }
 
-  // Create a refresh button component for the header
-  const RefreshButton = () => (
-    <TouchableOpacity style={styles.refreshButton} onPress={refreshData} disabled={isRefreshing}>
-      <Ionicons name="refresh" size={24} color="white" />
-    </TouchableOpacity>
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.logoContainer}>
+        <View style={[styles.logoCircle, { backgroundColor: theme.primary }]}>
+          <Ionicons name="home" size={28} color="white" />
+        </View>
+        <View style={styles.headerText}>
+          <Text style={[styles.appName, { color: theme.text }]}>Dashboard</Text>
+          <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
+            {userProfile?.division
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
+                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+                }`
+              : "Your Attendance Overview"}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.refreshButton} onPress={refreshData} disabled={isRefreshing}>
+          <Ionicons name="refresh" size={24} color={theme.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
   )
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
-      <Header
-        title="Oops Present"
-        subtitle={userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Dashboard"}
-        rightComponent={<RefreshButton />}
-      />
+  // Show loading if semester settings are still loading
+  if (isLoadingSemester) {
+    return (
+      <View style={styles.fullScreenContainer}>
+        <StatusBar
+          barStyle={isDarkMode ? "light-content" : "dark-content"}
+          backgroundColor="transparent"
+          translucent={true}
+        />
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshData} colors={[theme.primary]} />}
-      >
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate("Attendance")}
-          >
-            <LinearGradient colors={["#4f46e5", "#4338ca"]} style={styles.actionIconContainer}>
-              <Ionicons name="checkbox" size={24} color="white" />
-            </LinearGradient>
-            <Text style={[styles.actionText, { color: theme.text }]}>Mark Attendance</Text>
-          </TouchableOpacity>
+        <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
+          <SafeAreaView style={styles.safeArea} edges={[]}>
+            <View style={styles.statusBarSpacer} />
+            {renderHeader()}
 
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate("Manual")}
-          >
-            <LinearGradient colors={["#0ea5e9", "#0284c7"]} style={styles.actionIconContainer}>
-              <Ionicons name="create" size={24} color="white" />
-            </LinearGradient>
-            <Text style={[styles.actionText, { color: theme.text }]}>Manual Records</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: theme.card }]}
-            onPress={() => navigation.navigate("Timetable")}
-          >
-            <LinearGradient colors={["#f97316", "#ea580c"]} style={styles.actionIconContainer}>
-              <Ionicons name="calendar" size={24} color="white" />
-            </LinearGradient>
-            <Text style={[styles.actionText, { color: theme.text }]}>View Timetable</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Tab Selector */}
-        <View
-          style={[
-            styles.tabContainer,
-            {
-              backgroundColor: theme.card,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "overall" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
-            onPress={() => switchTab("overall")}
-          >
-            <Ionicons
-              name="stats-chart"
-              size={18}
-              color={activeTab === "overall" ? theme.primary : theme.secondaryText}
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: theme.secondaryText },
-                activeTab === "overall" && { color: theme.primary, fontWeight: "600" },
-              ]}
-            >
-              Overall
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "monthly" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
-            onPress={() => switchTab("monthly")}
-          >
-            <Ionicons
-              name="calendar"
-              size={18}
-              color={activeTab === "monthly" ? theme.primary : theme.secondaryText}
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: theme.secondaryText },
-                activeTab === "monthly" && { color: theme.primary, fontWeight: "600" },
-              ]}
-            >
-              Monthly
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "calculator" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
-            onPress={() => switchTab("calculator")}
-          >
-            <Ionicons
-              name="calculator"
-              size={18}
-              color={activeTab === "calculator" ? theme.primary : theme.secondaryText}
-              style={styles.tabIcon}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                { color: theme.secondaryText },
-                activeTab === "calculator" && { color: theme.primary, fontWeight: "600" },
-              ]}
-            >
-              Calculator
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Month Selector (only for monthly tab) */}
-        {activeTab === "monthly" && (
-          <View
-            style={[
-              styles.monthSelector,
-              {
-                backgroundColor: theme.card,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[styles.monthNavButton, { backgroundColor: theme.primary + "15" }]}
-              onPress={goToPreviousMonth}
-            >
-              <Ionicons name="chevron-back" size={20} color={theme.primary} />
-            </TouchableOpacity>
-
-            <View style={styles.monthTitleContainer}>
-              <Text style={[styles.monthTitle, { color: theme.text }]}>{format(selectedMonth, "MMMM yyyy")}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.monthNavButton,
-                { backgroundColor: theme.primary + "15" },
-                isSameMonth(selectedMonth, new Date()) && { opacity: 0.5 },
-              ]}
-              onPress={goToNextMonth}
-              disabled={isSameMonth(selectedMonth, new Date())}
-            >
-              <Ionicons name="chevron-forward" size={20} color={theme.primary} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Dashboard Content */}
-        <View style={styles.dashboardContainer}>
-          {isLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={theme.primary} />
-              <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading attendance data...</Text>
+              <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading semester settings...</Text>
             </View>
-          ) : error ? (
-            <View style={[styles.errorContainer, { backgroundColor: theme.card }]}>
-              <Ionicons name="alert-circle" size={40} color={theme.error} />
-              <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
-              <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.primary }]} onPress={refreshData}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+          </SafeAreaView>
+        </LinearGradient>
+      </View>
+    )
+  }
+
+  // Show setup message if user hasn't completed setup
+  if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) {
+    return (
+      <View style={styles.fullScreenContainer}>
+        <StatusBar
+          barStyle={isDarkMode ? "light-content" : "dark-content"}
+          backgroundColor="transparent"
+          translucent={true}
+        />
+
+        <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
+          <SafeAreaView style={styles.safeArea} edges={[]}>
+            <View style={styles.statusBarSpacer} />
+            {renderHeader()}
+
+            <View style={[styles.setupContainer, { backgroundColor: theme.card }]}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: theme.primary + "20" }]}>
+                <Ionicons name="settings-outline" size={40} color={theme.primary} />
+              </View>
+              <Text style={[styles.emptyStateTitle, { color: theme.text }]}>Setup Required</Text>
+              <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
+                Please complete your profile setup including division, batch, and semester to view attendance statistics
+              </Text>
+              <TouchableOpacity
+                style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
+                onPress={() => navigation.navigate("Settings")}
+              >
+                <Text style={styles.emptyStateButtonText}>Go to Settings</Text>
               </TouchableOpacity>
             </View>
-          ) : activeTab === "calculator" ? (
-            // Calculator Tab Content
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance Calculator</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
-                Calculate your attendance requirements
-              </Text>
+          </SafeAreaView>
+        </LinearGradient>
+      </View>
+    )
+  }
 
-              {overallStats.length > 0 ? (
-                <AttendanceCalculator
-                  subject={overallStats[0]?.subject || null}
-                  timetable={[]}
-                  attendance={{}}
-                  selectedDate={format(new Date(), "yyyy-MM-dd")}
-                />
-              ) : (
-                <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
-                  <View style={[styles.emptyIconContainer, { backgroundColor: theme.primary + "20" }]}>
-                    <Ionicons name="calculator-outline" size={40} color={theme.primary} />
-                  </View>
-                  <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Attendance Data</Text>
-                  <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
-                    Start taking attendance to use the calculator
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.emptyStateButton, { backgroundColor: theme.primary }]}
-                    onPress={() => navigation.navigate("Attendance")}
-                  >
-                    <Text style={styles.emptyStateButtonText}>Take Attendance</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+  return (
+    <View style={styles.fullScreenContainer}>
+      {/* Status Bar Configuration */}
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent={true}
+      />
+
+      <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
+        {/* Decorative circles */}
+        <View style={[styles.circle, styles.circle1, { backgroundColor: theme.primary + "20" }]} />
+        <View style={[styles.circle, styles.circle2, { backgroundColor: theme.primary + "15" }]} />
+        <View style={[styles.circle, styles.circle3, { backgroundColor: theme.primary + "10" }]} />
+
+        <SafeAreaView style={styles.safeArea} edges={[]}>
+          <View style={styles.statusBarSpacer} />
+          {renderHeader()}
+
+          {/* Tab Selector */}
+          <View style={[styles.tabContainer, { backgroundColor: theme.card }]}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "overall" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
+              onPress={() => switchTab("overall")}
+            >
+              <Ionicons
+                name="stats-chart"
+                size={18}
+                color={activeTab === "overall" ? theme.primary : theme.secondaryText}
+                style={styles.tabIcon}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.secondaryText },
+                  activeTab === "overall" && { color: theme.primary, fontWeight: "600" },
+                ]}
+              >
+                Overall
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "monthly" && [styles.activeTab, { borderBottomColor: theme.primary }]]}
+              onPress={() => switchTab("monthly")}
+            >
+              <Ionicons
+                name="calendar"
+                size={18}
+                color={activeTab === "monthly" ? theme.primary : theme.secondaryText}
+                style={styles.tabIcon}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.secondaryText },
+                  activeTab === "monthly" && { color: theme.primary, fontWeight: "600" },
+                ]}
+              >
+                Monthly
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === "calculator" && [styles.activeTab, { borderBottomColor: theme.primary }],
+              ]}
+              onPress={() => switchTab("calculator")}
+            >
+              <Ionicons
+                name="calculator"
+                size={18}
+                color={activeTab === "calculator" ? theme.primary : theme.secondaryText}
+                style={styles.tabIcon}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.secondaryText },
+                  activeTab === "calculator" && { color: theme.primary, fontWeight: "600" },
+                ]}
+              >
+                Calculator
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Month Selector (only for monthly tab) */}
+          {activeTab === "monthly" && (
+            <View style={[styles.monthSelector, { backgroundColor: theme.card }]}>
+              <TouchableOpacity
+                style={[styles.monthNavButton, { backgroundColor: theme.primary + "15" }]}
+                onPress={goToPreviousMonth}
+              >
+                <Ionicons name="chevron-back" size={20} color={theme.primary} />
+              </TouchableOpacity>
+
+              <View style={styles.monthTitleContainer}>
+                <Text style={[styles.monthTitle, { color: theme.text }]}>{format(selectedMonth, "MMMM yyyy")}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.monthNavButton,
+                  { backgroundColor: theme.primary + "15" },
+                  isSameMonth(selectedMonth, new Date()) && { opacity: 0.5 },
+                ]}
+                onPress={goToNextMonth}
+                disabled={isSameMonth(selectedMonth, new Date())}
+              >
+                <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <>
-              {/* Title */}
-              <View style={styles.sectionHeader}>
+          )}
+
+          <ScrollView
+            style={styles.content}
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshData} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Tab Content */}
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading attendance data...</Text>
+              </View>
+            ) : error ? (
+              <View style={[styles.errorContainer, { backgroundColor: theme.card }]}>
+                <Ionicons name="alert-circle" size={40} color={theme.error} />
+                <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+                <TouchableOpacity
+                  style={[styles.retryButton, { backgroundColor: theme.primary }]}
+                  onPress={refreshData}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : activeTab === "calculator" ? (
+              // Calculator Tab Content
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Attendance Calculator</Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
+                  Calculate your attendance requirements for 75% criteria
+                </Text>
+
+                <AttendanceCalculator isTabView={true} />
+              </View>
+            ) : (
+              <>
+
                 {/* Attendance Table */}
                 <View style={styles.tableSection}>
                   <Text style={[styles.tableSectionTitle, { color: theme.text }]}>Detailed Attendance</Text>
                   {renderAttendanceTable(activeTab === "overall" ? overallStats : monthlyStats)}
                 </View>
-                <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                  {activeTab === "overall" ? "Overall Attendance" : "Monthly Attendance"}
-                </Text>
-                <Text style={[styles.sectionSubtitle, { color: theme.secondaryText }]}>
-                  {activeTab === "overall"
-                    ? "Combined attendance from all months"
-                    : `Attendance for ${format(selectedMonth, "MMMM yyyy")}`}
-                </Text>
-              </View>
 
-              {/* Charts Section */}
-              <View style={styles.chartsContainer}>
-                {/* Theory Bar Chart */}
-                <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
-                  <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance (%)</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <BarChart
-                      data={getTheoryBarChartData()}
-                      width={Math.max(SCREEN_WIDTH - 64, getTheoryBarChartData().labels.length * 60)}
-                      height={180}
-                      yAxisSuffix="%"
-                      chartConfig={{
-                        backgroundColor: theme.card,
-                        backgroundGradientFrom: theme.card,
-                        backgroundGradientTo: theme.card,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => "#4f46e5", // Theory color
-                        labelColor: (opacity = 1) => theme.text,
-                        barPercentage: 0.6,
-                      }}
-                      style={{
-                        marginVertical: 8,
-                        borderRadius: 16,
-                      }}
-                      showValuesOnTopOfBars
-                    />
-                  </ScrollView>
-                </View>
-
-                {/* Lab Bar Chart */}
-                <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
-                  <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance (%)</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <BarChart
-                      data={getLabBarChartData()}
-                      width={Math.max(SCREEN_WIDTH - 64, getLabBarChartData().labels.length * 60)}
-                      height={180}
-                      yAxisSuffix="%"
-                      chartConfig={{
-                        backgroundColor: theme.card,
-                        backgroundGradientFrom: theme.card,
-                        backgroundGradientTo: theme.card,
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => "#0ea5e9", // Lab color
-                        labelColor: (opacity = 1) => theme.text,
-                        barPercentage: 0.6,
-                      }}
-                      style={{
-                        marginVertical: 8,
-                        borderRadius: 16,
-                      }}
-                      showValuesOnTopOfBars
-                    />
-                  </ScrollView>
-                </View>
-
-                {/* Trend Charts (only for overall) */}
-                {activeTab === "overall" && (
-                  <>
-                    <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
-                      <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance Trend</Text>
-                      <LineChart
-                        data={getTheoryTrendData()}
-                        width={SCREEN_WIDTH - 64}
+                {/* Charts Section */}
+                <View style={styles.chartsContainer}>
+                  {/* Theory Bar Chart */}
+                  <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance (%)</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <BarChart
+                        data={getTheoryBarChartData()}
+                        width={Math.max(SCREEN_WIDTH - 64, getTheoryBarChartData().labels.length * 60)}
                         height={180}
                         yAxisSuffix="%"
                         chartConfig={{
@@ -1086,27 +1271,26 @@ export default function HomeScreen() {
                           backgroundGradientFrom: theme.card,
                           backgroundGradientTo: theme.card,
                           decimalPlaces: 0,
-                          color: (opacity = 1) => "#4f46e5", // Theory color
+                          color: (opacity = 1) => "#4f46e5",
                           labelColor: (opacity = 1) => theme.text,
-                          propsForDots: {
-                            r: "6",
-                            strokeWidth: "2",
-                            stroke: "#4f46e5",
-                          },
+                          barPercentage: 0.6,
                         }}
-                        bezier
                         style={{
                           marginVertical: 8,
                           borderRadius: 16,
                         }}
+                        showValuesOnTopOfBars
                       />
-                    </View>
+                    </ScrollView>
+                  </View>
 
-                    <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
-                      <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance Trend</Text>
-                      <LineChart
-                        data={getLabTrendData()}
-                        width={SCREEN_WIDTH - 64}
+                  {/* Lab Bar Chart */}
+                  <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
+                    <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance (%)</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <BarChart
+                        data={getLabBarChartData()}
+                        width={Math.max(SCREEN_WIDTH - 64, getLabBarChartData().labels.length * 60)}
                         height={180}
                         yAxisSuffix="%"
                         chartConfig={{
@@ -1114,117 +1298,317 @@ export default function HomeScreen() {
                           backgroundGradientFrom: theme.card,
                           backgroundGradientTo: theme.card,
                           decimalPlaces: 0,
-                          color: (opacity = 1) => "#0ea5e9", // Lab color
+                          color: (opacity = 1) => "#0ea5e9",
                           labelColor: (opacity = 1) => theme.text,
-                          propsForDots: {
-                            r: "6",
-                            strokeWidth: "2",
-                            stroke: "#0ea5e9",
-                          },
+                          barPercentage: 0.6,
                         }}
-                        bezier
                         style={{
                           marginVertical: 8,
                           borderRadius: 16,
                         }}
+                        showValuesOnTopOfBars
                       />
+                    </ScrollView>
+                  </View>
+
+                  {/* Trend Charts (only for overall) */}
+                  {activeTab === "overall" && (
+                    <>
+                      <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
+                        <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance Trend</Text>
+                        <LineChart
+                          data={getTheoryTrendData()}
+                          width={SCREEN_WIDTH - 64}
+                          height={180}
+                          yAxisSuffix="%"
+                          chartConfig={{
+                            backgroundColor: theme.card,
+                            backgroundGradientFrom: theme.card,
+                            backgroundGradientTo: theme.card,
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => "#4f46e5",
+                            labelColor: (opacity = 1) => theme.text,
+                            propsForDots: {
+                              r: "6",
+                              strokeWidth: "2",
+                              stroke: "#4f46e5",
+                            },
+                          }}
+                          bezier
+                          style={{
+                            marginVertical: 8,
+                            borderRadius: 16,
+                          }}
+                        />
+                      </View>
+
+                      <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
+                        <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance Trend</Text>
+                        <LineChart
+                          data={getLabTrendData()}
+                          width={SCREEN_WIDTH - 64}
+                          height={180}
+                          yAxisSuffix="%"
+                          chartConfig={{
+                            backgroundColor: theme.card,
+                            backgroundGradientFrom: theme.card,
+                            backgroundGradientTo: theme.card,
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => "#0ea5e9",
+                            labelColor: (opacity = 1) => theme.text,
+                            propsForDots: {
+                              r: "6",
+                              strokeWidth: "2",
+                              stroke: "#0ea5e9",
+                            },
+                          }}
+                          bezier
+                          style={{
+                            marginVertical: 8,
+                            borderRadius: 16,
+                          }}
+                        />
+                      </View>
+                    </>
+                  )}
+                </View>
+                {/* Summary Card */}
+                <View style={[styles.summaryCard, { backgroundColor: theme.card }]}>
+                  <Text style={[styles.summaryTitle, { color: theme.text }]}>
+                    {activeTab === "overall" ? "Overall Summary" : "Monthly Summary"}
+                  </Text>
+                  <Text style={[styles.summarySubtitle, { color: theme.secondaryText }]}>
+                    {activeTab === "overall"
+                      ? getSemesterInfo()
+                      : `Attendance for ${format(selectedMonth, "MMMM yyyy")}`}
+                  </Text>
+
+                  <View style={styles.summaryStats}>
+                    <View style={styles.summaryStatItem}>
+                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Theory Classes</Text>
+                      <Text style={[styles.summaryStatValue, { color: theme.text }]}>
+                        {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
+                          (sum, stat) => sum + stat.theoryPresent,
+                          0,
+                        )}
+                        /
+                        {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
+                          (sum, stat) => sum + stat.theoryTotal,
+                          0,
+                        )}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.summaryStatPercentage,
+                          {
+                            color: overallTheoryAttendance >= 75 ? theme.present : theme.absent,
+                          },
+                        ]}
+                      >
+                        {activeTab === "overall"
+                          ? overallTheoryAttendance
+                          : activeTab === "monthly" && monthlyStats.length > 0
+                            ? Math.round(
+                                (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
+                                  Math.max(
+                                    1,
+                                    monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
+                                  )) *
+                                  100,
+                              )
+                            : 0}
+                        %
+                      </Text>
                     </View>
-                  </>
-                )}
-              </View>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+                    <View style={styles.summaryStatItem}>
+                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Lab Classes</Text>
+                      <Text style={[styles.summaryStatValue, { color: theme.text }]}>
+                        {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
+                          (sum, stat) => sum + stat.labPresent,
+                          0,
+                        )}
+                        /
+                        {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
+                          (sum, stat) => sum + stat.labTotal,
+                          0,
+                        )}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.summaryStatPercentage,
+                          {
+                            color: overallLabAttendance >= 75 ? theme.present : theme.absent,
+                          },
+                        ]}
+                      >
+                        {activeTab === "overall"
+                          ? overallLabAttendance
+                          : activeTab === "monthly" && monthlyStats.length > 0
+                            ? Math.round(
+                                (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
+                                  Math.max(
+                                    1,
+                                    monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
+                                  )) *
+                                  100,
+                              )
+                            : 0}
+                        %
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   )
 }
 
-// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
-  content: {
+  safeArea: {
     flex: 1,
-    padding: spacing.screenPadding,
+  },
+  statusBarSpacer: {
+    height: 44,
+    width: "100%",
+  },
+  circle: {
+    position: "absolute",
+    borderRadius: 9999,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -100,
+    right: -100,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    top: 200,
+    left: -75,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    bottom: 150,
+    right: -50,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logoCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  headerText: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  appSubtitle: {
+    fontSize: 14,
   },
   refreshButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "#4f46e520",
     justifyContent: "center",
     alignItems: "center",
   },
-  progressContainer: {
-    marginTop: spacing.md,
-  },
-  progressLabelContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: spacing.xs,
-  },
-  progressLabel: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  progressValue: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    width: "100%",
-  },
-  progressFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    paddingBottom: spacing.md,
-  },
-  statCard: {
-    width: "31%",
-    borderRadius: spacing.borderRadius.large,
-    padding: spacing.sm,
+  setupContainer: {
+    margin: 16,
+    padding: 32,
+    borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
-  statCardElevated: {
-    ...createShadow(2),
+  quickActionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 24,
   },
-  statIconContainer: {
+  actionCard: {
+    width: "31%",
+    borderRadius: 8,
+    padding: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  actionIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
-  statInfo: {
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  statLabel: {
-    fontSize: 12,
-    marginTop: spacing.xs,
+  actionText: {
+    fontSize: 13,
+    fontWeight: "500",
     textAlign: "center",
+    lineHeight: 16,
   },
   tabContainer: {
     flexDirection: "row",
-    borderRadius: spacing.borderRadius.large,
-    marginBottom: spacing.md,
-    ...createShadow(1),
-    overflow: "hidden",
+    marginHorizontal: 16,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+    marginBottom: 16,
   },
   tab: {
     flex: 1,
@@ -1236,23 +1620,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabIcon: {
-    marginRight: spacing.xs,
+    marginRight: 4,
   },
   activeTab: {
     borderBottomWidth: 3,
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "500",
   },
   monthSelector: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: spacing.borderRadius.large,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    ...createShadow(1),
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   monthNavButton: {
     width: 40,
@@ -1269,81 +1661,160 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  currentMonthBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: spacing.borderRadius.large,
-    marginLeft: spacing.sm,
+  content: {
+    flex: 1,
   },
-  currentMonthText: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 8,
+  },
+  errorContainer: {
+    padding: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    margin: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginVertical: 8,
+  },
+  retryButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  retryButtonText: {
     color: "white",
-    fontSize: 10,
     fontWeight: "600",
   },
-  dashboardContainer: {
-    marginBottom: spacing.md,
-  },
-  sectionHeader: {
-    marginBottom: spacing.sm,
+  section: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: spacing.xs,
-    letterSpacing: 0.2,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: spacing.sm,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  summaryCard: {
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  summarySubtitle: {
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  summaryStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  summaryStatItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  summaryStatLabel: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  summaryStatValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  summaryStatPercentage: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   chartsContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: 24,
   },
   chartCard: {
-    borderRadius: spacing.borderRadius.large,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...createShadow(1),
+    borderRadius: 8,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   chartTitle: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: spacing.sm,
-  },
-  pieChartContainer: {
-    alignItems: "center",
-  },
-  noChartData: {
-    height: 180,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  noChartDataText: {
-    fontSize: 15,
+    marginBottom: 16,
   },
   tableSection: {
-    marginBottom: spacing.xl,
+    marginBottom: 24,
+    paddingHorizontal: 16,
   },
   tableSectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: spacing.sm,
-    letterSpacing: 0.2,
+    marginBottom: 16,
   },
   tableContainer: {
-    borderRadius: spacing.borderRadius.large,
+    borderRadius: 8,
     overflow: "hidden",
-    ...createShadow(1),
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   tableHeader: {
     flexDirection: "row",
     paddingVertical: 14,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 12,
   },
   tableRow: {
     flexDirection: "row",
     paddingVertical: 14,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 12,
   },
   headerCell: {
     fontSize: 14,
@@ -1351,18 +1822,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   smallHeaderCell: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
     textAlign: "center",
-    flex: 1,
+    width: "33%",
   },
   subjectCell: {
-    flex: 1,
-    paddingHorizontal: spacing.sm,
-    fontSize: 14,
-    fontWeight: "500",
-    textAlignVertical: "center",
-    alignSelf: "center",
+    flex: 2,
+    textAlign: "left",
   },
   theoryLabCell: {
     flex: 1.5,
@@ -1370,70 +1837,40 @@ const styles = StyleSheet.create({
   },
   attendanceDetails: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    justifyContent: "space-around",
     width: "100%",
-    paddingHorizontal: spacing.xs,
   },
   attendanceValue: {
     fontSize: 13,
-    flex: 1,
-    textAlign: "center",
     fontWeight: "500",
+    textAlign: "center",
+    width: "33%",
   },
   percentageBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: spacing.borderRadius.large,
-    flex: 1,
-    alignItems: "center",
+    borderRadius: 9999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   percentageText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "white",
-  },
-  totalText: {
-    fontSize: 13,
-    flex: 1,
-    textAlign: "center",
-  },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 15,
-  },
-  errorContainer: {
-    padding: spacing.xl,
-    borderRadius: spacing.borderRadius.large,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: spacing.md,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginVertical: spacing.sm,
-  },
-  retryButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.borderRadius.large,
-    marginTop: spacing.sm,
-  },
-  retryButtonText: {
-    color: "white",
-    fontWeight: "600",
   },
   emptyState: {
-    padding: spacing.xl,
-    borderRadius: spacing.borderRadius.large,
+    margin: 16,
+    padding: 32,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginVertical: spacing.md,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   emptyIconContainer: {
     width: 80,
@@ -1441,56 +1878,26 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: 8,
+    textAlign: "center",
   },
   emptyStateText: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   emptyStateButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.borderRadius.large,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   emptyStateButtonText: {
     color: "white",
     fontWeight: "600",
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  actionsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-  },
-  actionButton: {
-    borderRadius: spacing.borderRadius.large,
-    padding: spacing.md,
-    width: "31%",
-    alignItems: "center",
-    ...createShadow(1),
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: spacing.sm,
-  },
-  actionText: {
-    fontSize: 13,
-    marginTop: spacing.sm,
-    textAlign: "center",
-    fontWeight: "500",
   },
 })

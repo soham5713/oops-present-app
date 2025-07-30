@@ -34,7 +34,7 @@ export default function TimetableScreen() {
   }, [])
 
   useEffect(() => {
-    if (userProfile?.division && userProfile?.batch && selectedDay) {
+    if (userProfile?.division && userProfile?.batch && userProfile?.semester && selectedDay) {
       loadTimetable()
     }
   }, [userProfile, selectedDay])
@@ -42,9 +42,16 @@ export default function TimetableScreen() {
   const loadTimetable = async () => {
     try {
       setIsLoading(true)
-      const schedule = getDivisionTimetable(userProfile.division, userProfile.batch, selectedDay)
+      // Pass the semester from userProfile
+      const schedule = getDivisionTimetable(
+        userProfile.division,
+        userProfile.batch,
+        selectedDay,
+        userProfile.semester || "1",
+      )
       setTimetable(schedule)
     } catch (error) {
+      console.error("Error loading timetable:", error)
       showToast("Failed to load timetable", "error")
     } finally {
       setIsLoading(false)
@@ -55,11 +62,11 @@ export default function TimetableScreen() {
     setRefreshing(true)
     await loadTimetable()
     setRefreshing(false)
-    // showToast("Timetable refreshed", "success")
   }
 
   const getSubjectColor = (subject, type) => {
     const colors = {
+      // Semester 1 subjects
       DECA: ["#f87171", "#7f1d1d"],
       PSOOP: ["#60a5fa", "#1e40af"],
       BEE: ["#34d399", "#065f46"],
@@ -72,6 +79,16 @@ export default function TimetableScreen() {
       UHV: ["#c084fc", "#6b21a8"],
       TS: ["#2dd4bf", "#115e59"],
       SS1: ["#f43f5e", "#9f1239"],
+      // Semester 2 subjects
+      "FOM-II": ["#8b5cf6", "#5b21b6"],
+      MDM: ["#06b6d4", "#0e7490"],
+      CCN: ["#f59e0b", "#d97706"],
+      OS: ["#10b981", "#047857"],
+      DAA: ["#ef4444", "#dc2626"],
+      SMCS: ["#8b5cf6", "#7c3aed"],
+      PCS: ["#f97316", "#ea580c"],
+      "HSM-II": ["#84cc16", "#65a30d"],
+      LLC: ["#ec4899", "#db2777"],
     }
 
     const defaultColor = ["#94a3b8", "#475569"]
@@ -89,14 +106,24 @@ export default function TimetableScreen() {
         <View style={styles.headerText}>
           <Text style={[styles.appName, { color: theme.text }]}>Timetable</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
-            {userProfile?.division && userProfile?.batch
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
-                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-                }`
+            {userProfile?.division && userProfile?.batch && userProfile?.semester
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch} - Semester ${userProfile.semester}`
               : "Your Schedule"}
           </Text>
         </View>
       </View>
+      <TouchableOpacity
+        style={[styles.refreshButton, { backgroundColor: theme.card }]}
+        onPress={onRefresh}
+        disabled={refreshing}
+      >
+        <Ionicons
+          name="refresh"
+          size={20}
+          color={theme.primary}
+          style={refreshing ? { transform: [{ rotate: "180deg" }] } : {}}
+        />
+      </TouchableOpacity>
     </View>
   )
 
@@ -156,15 +183,17 @@ export default function TimetableScreen() {
         <View style={styles.subjectHeader}>
           <View style={styles.subjectInfo}>
             <Text style={[styles.subjectName, { color: theme.text }]}>{item.subject}</Text>
-            <View
-              style={[
-                styles.typeBadge,
-                {
-                  backgroundColor: subjectColor + "20",
-                },
-              ]}
-            >
-              <Text style={[styles.typeText, { color: subjectColor }]}>{subjectType.toUpperCase()}</Text>
+            <View style={styles.badgeAndTimeContainer}>
+              <View
+                style={[
+                  styles.typeBadge,
+                  {
+                    backgroundColor: subjectColor + "20",
+                  },
+                ]}
+              >
+                <Text style={[styles.typeText, { color: subjectColor }]}>{subjectType.toUpperCase()}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -176,7 +205,6 @@ export default function TimetableScreen() {
             </View>
             <Text style={[styles.detailText, { color: theme.secondaryText }]}>{item.room || "Room TBA"}</Text>
           </View>
-
           <View style={styles.detailItem}>
             <View style={[styles.detailIconContainer, { backgroundColor: theme.primary + "20" }]}>
               <Ionicons name="time" size={16} color={theme.primary} />
@@ -200,15 +228,24 @@ export default function TimetableScreen() {
     </View>
   )
 
+  const renderLoadingState = () => (
+    <View style={styles.loadingContainer}>
+      <View style={[styles.emptyStateIcon, { backgroundColor: theme.primary + "20" }]}>
+        <Ionicons name="time" size={48} color={theme.primary} />
+      </View>
+      <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading timetable...</Text>
+    </View>
+  )
+
   return (
     <View style={styles.fullScreenContainer}>
       {/* Status Bar Configuration */}
-      <StatusBar 
-        barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor="transparent" 
-        translucent={true} 
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent={true}
       />
-      
+
       <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
         {/* Decorative circles */}
         <View style={[styles.circle, styles.circle1, { backgroundColor: theme.primary + "20" }]} />
@@ -226,9 +263,7 @@ export default function TimetableScreen() {
             showsVerticalScrollIndicator={false}
           >
             {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading timetable...</Text>
-              </View>
+              renderLoadingState()
             ) : timetable.length > 0 ? (
               <View style={styles.timetableContainer}>
                 {timetable.map((item, index) => renderSubjectCard(item, index))}
@@ -255,7 +290,7 @@ const styles = StyleSheet.create({
   },
   statusBarSpacer: {
     height: StatusBar.currentHeight || 44, // Android status bar height or iOS safe area
-    width: '100%',
+    width: "100%",
   },
   circle: {
     position: "absolute",
@@ -280,12 +315,16 @@ const styles = StyleSheet.create({
     right: -50,
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: spacing.md,
     paddingBottom: spacing.lg,
   },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   logoCircle: {
     width: 50,
@@ -307,6 +346,14 @@ const styles = StyleSheet.create({
   appSubtitle: {
     fontSize: 14,
   },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    ...createShadow(1),
+  },
   daySelectorContainer: {
     marginHorizontal: spacing.md,
     borderRadius: spacing.borderRadius.large,
@@ -318,7 +365,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   dayButton: {
-    // marginHorizontal: spacing.xs,
     borderRadius: spacing.borderRadius.large,
     overflow: "hidden",
   },
@@ -339,9 +385,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: spacing.xl,
+    marginTop: spacing.xxl,
   },
   loadingText: {
     fontSize: 16,
+    marginTop: spacing.md,
   },
   timetableContainer: {
     padding: spacing.md,
@@ -359,29 +407,38 @@ const styles = StyleSheet.create({
   subjectInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   subjectName: {
     fontSize: 18,
     fontWeight: "bold",
+    flex: 1,
+  },
+  badgeAndTimeContainer: {
+    alignItems: "flex-end",
   },
   typeBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: spacing.borderRadius.medium,
+    marginBottom: spacing.xs / 2,
   },
   typeText: {
     fontSize: 12,
     fontWeight: "600",
   },
-  detailsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  timeText: {
+    fontSize: 12,
+    fontWeight: "500",
   },
+  detailsContainer: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   detailIconContainer: {
     width: 32,
@@ -393,7 +450,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    flex: 1,
   },
   emptyStateContainer: {
     flex: 1,

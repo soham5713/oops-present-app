@@ -9,243 +9,262 @@ import { colors } from "../utils/theme"
 import { useUser } from "../context/UserContext"
 import { getAttendanceByDateRange, type AttendanceRecord } from "../firebase/attendanceService"
 import { spacing, createShadow } from "../utils/spacing"
-import { AllSubjects } from "../timetable"
 import { getHolidays } from "../utils/holidays"
 import { db } from "../firebase/config"
 import { doc, getDoc } from "firebase/firestore"
-import { format } from "date-fns"
+import { format, eachDayOfInterval, parseISO } from "date-fns"
+import { getSemesterSettings } from "../firebase/semesterService"
 
 type AttendanceCalculatorProps = {
   isTabView?: boolean
+  subject?: string | null
+  timetable?: any[]
+  attendance?: Record<string, any>
+  selectedDate?: string
 }
 
-const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView = false }) => {
+type SubjectCalculation = {
+  subject: string
+  // Theory calculations
+  theoryTotalSemester: number
+  theoryAttended: number
+  theoryPercentage: number
+  theoryCanSkip: number
+  theoryNeedToAttend: number
+  theoryMaxPossible: number
+  // Lab calculations
+  labTotalSemester: number
+  labAttended: number
+  labPercentage: number
+  labCanSkip: number
+  labNeedToAttend: number
+  labMaxPossible: number
+  // Remaining lectures
+  theoryRemaining: number
+  labRemaining: number
+  // Status
+  theoryCanReach75: boolean
+  labCanReach75: boolean
+  importedData: {
+    theoryTotal: number
+    theoryAttended: number
+    labTotal: number
+    labAttended: number
+  }
+}
+
+const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
+  isTabView = false,
+  subject: initialSubject = null,
+  timetable = [],
+  attendance = {},
+  selectedDate = format(new Date(), "yyyy-MM-dd"),
+}) => {
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
   const { user, userProfile } = useUser()
 
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null)
-  const [subjectStats, setSubjectStats] = useState<{
-    [subject: string]: {
-      totalLectures: number
-      attendedLectures: number
-      missedLectures: number
-      currentPercentage: number
-      canSkip: number
-      requiredToAttend: number
-      remainingLectures: number
-      totalLecturesWithRemaining: number
-      requiredForMinimum: number
-      isPossibleToReach75: boolean
-      shortByLectures: number
-      maxPossiblePercentage: number
-      importedData: {
-        theoryTotal: number
-        theoryAttended: number
-        labTotal: number
-        labAttended: number
-      }
-    }
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(initialSubject)
+  const [subjectCalculations, setSubjectCalculations] = useState<{
+    [subject: string]: SubjectCalculation
   }>({})
 
-  // Helper function to get the day of week from a date string
-  const getDayOfWeek = (dateString: string): string => {
-    const date = new Date(dateString)
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-    return days[date.getDay()]
-  }
-
-  // Helper function to determine which days of the week have lectures for a subject
-  const getSubjectScheduleByDays = (subjectName: string | null, division?: string, batch?: string) => {
-    if (!subjectName || !division || !batch) {
-      return {
-        Monday: false,
-        Tuesday: false,
-        Wednesday: false,
-        Thursday: false,
-        Friday: false,
-        Saturday: false,
-        Sunday: false,
-      }
+  // Get subjects for the user's division, batch, and semester
+  const getUserSubjects = () => {
+    if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) {
+      return []
     }
 
-    // Import the necessary functions from timetable.js
-    const { getDaySubjects } = require("../timetable")
+    const subjects = new Set<string>()
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-    // Initialize schedule for each day
-    const schedule = {
-      Monday: false,
-      Tuesday: false,
-      Wednesday: false,
-      Thursday: false,
-      Friday: false,
-      Saturday: false,
-      Sunday: false,
-    }
+    try {
+      const { getSemesterTimetable } = require("../timetable")
+      const semesterTimetable = getSemesterTimetable(userProfile.semester)
 
-    // Check each weekday for the subject
-    Object.keys(schedule).forEach((day) => {
-      if (day === "Saturday" || day === "Sunday") return // Skip weekends
-
-      const daySubjects = getDaySubjects(division, batch, day)
-      // Only consider theory lectures, not lab
-      const hasThisSubject = daySubjects.some((s: any) => s.subject === subjectName && s.type.includes("theory"))
-
-      if (hasThisSubject) {
-        schedule[day] = true
+      if (!semesterTimetable || !semesterTimetable[userProfile.division]) {
+        return []
       }
-    })
 
-    return schedule
-  }
+      const divisionData = semesterTimetable[userProfile.division]
 
-  // Load attendance data for all subjects
-  useEffect(() => {
-    if (!user?.uid || !userProfile?.division || !userProfile?.batch) return
+      // Get subjects from shared schedule
+      days.forEach((day) => {
+        const sharedSubjects = divisionData.shared?.[day] || []
+        sharedSubjects.forEach((subject: any) => {
+          if (subject.subject) {
+            subjects.add(subject.subject)
+          }
+        })
+      })
 
-    const loadAllSubjectsData = async () => {
-      setIsLoading(true)
-      try {
-        // Get the semester start and end dates
-        const semesterStartDate = userProfile?.semesterStartDate || "2024-01-20"
-        const semesterEndDate = userProfile?.semesterEndDate || "2024-05-16"
-        const today = format(new Date(), "yyyy-MM-dd")
-
-        // Get records for the date range
-        const records = await getAttendanceByDateRange(user.uid, semesterStartDate, semesterEndDate)
-
-        // Get holidays
-        const holidays = getHolidays()
-
-        // Process each subject
-        const allSubjectStats: any = {}
-
-        for (const subject of AllSubjects) {
-          // Get imported attendance data from Firebase
-          const importedData = await getImportedAttendanceData(user.uid, subject)
-
-          // Determine which days of the week have lectures for this subject
-          const subjectSchedule = getSubjectScheduleByDays(subject, userProfile?.division, userProfile?.batch)
-
-          // Count total lectures, attended lectures, and missed lectures for the subject
-          let totalLectures = 0
-          let attendedLectures = 0
-          let missedLectures = 0
-
-          // Add imported data to totals - ONLY THEORY, NOT LAB
-          totalLectures += importedData.theoryTotal || 0
-          attendedLectures += importedData.theoryAttended || 0
-          missedLectures += importedData.theoryTotal - importedData.theoryAttended
-
-          // Process attendance records
-          Object.entries(records).forEach(([date, dateRecords]) => {
-            // Skip if date is a holiday
-            if (holidays.includes(date)) return
-
-            // Check if this date has a lecture for the selected subject
-            const dayOfWeek = getDayOfWeek(date)
-            if (!subjectSchedule[dayOfWeek]) return // Skip if no lecture on this day
-
-            dateRecords.forEach((record: AttendanceRecord) => {
-              if (record.subject === subject && record.type === "theory") {
-                // Only count theory lectures, explicitly exclude lab
-                // Only count if not part of imported data
-                if (!importedData.startDate || date > importedData.startDate) {
-                  totalLectures++
-                  if (record.status === "present") {
-                    attendedLectures++
-                  } else if (record.status === "absent") {
-                    missedLectures++
-                  }
-                }
-              }
-            })
+      // Get subjects from batch-specific schedule
+      const batchData = divisionData.batches?.[userProfile.batch]
+      if (batchData) {
+        days.forEach((day) => {
+          const batchSubjects = batchData[day] || []
+          batchSubjects.forEach((subject: any) => {
+            if (subject.subject) {
+              subjects.add(subject.subject)
+            }
           })
+        })
+      }
 
-          // Calculate current attendance percentage
-          const currentPercentage = totalLectures > 0 ? Math.round((attendedLectures / totalLectures) * 100) : 0
+      return Array.from(subjects)
+    } catch (error) {
+      console.error("[CALCULATOR] Error getting subjects:", error)
+      return []
+    }
+  }
 
-          // Calculate how many more lectures can be skipped while maintaining 75% attendance
-          // Formula: canSkip = 0.25 * totalLectures - missedLectures
-          const canSkip = Math.floor(0.25 * totalLectures - missedLectures)
+  // Get subject schedule for a specific subject
+  const getSubjectSchedule = (subjectName: string) => {
+    if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) {
+      return { theory: {}, lab: {} }
+    }
 
-          // Calculate minimum lectures required to reach 75% attendance
-          // Formula: requiredToAttend = 0.75 * totalLectures - attendedLectures
-          const requiredToAttend = Math.ceil(0.75 * totalLectures - attendedLectures)
+    const schedule = { theory: {}, lab: {} }
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-          // Calculate remaining lectures until semester end
-          const remainingLectures = await calculateRemainingLectures(
-            subject,
-            today,
-            semesterEndDate,
-            holidays,
-            subjectSchedule,
-          )
+    try {
+      const { getSemesterTimetable } = require("../timetable")
+      const semesterTimetable = getSemesterTimetable(userProfile.semester)
 
-          // Calculate total lectures including remaining ones
-          const totalLecturesWithRemaining = totalLectures + remainingLectures
+      if (!semesterTimetable || !semesterTimetable[userProfile.division]) {
+        return schedule
+      }
 
-          // Calculate how many lectures needed to reach 75% of total
-          const requiredForMinimum = Math.ceil(0.75 * totalLecturesWithRemaining)
+      const divisionData = semesterTimetable[userProfile.division]
+      const batchData = divisionData.batches?.[userProfile.batch]
 
-          // Check if it's possible to reach 75% attendance
-          const isPossibleToReach75 = attendedLectures + remainingLectures >= requiredForMinimum
-
-          // Calculate how many lectures short if not possible
-          const shortByLectures = isPossibleToReach75 ? 0 : requiredForMinimum - (attendedLectures + remainingLectures)
-
-          // Calculate maximum possible percentage if all remaining lectures are attended
-          const maxPossiblePercentage =
-            totalLecturesWithRemaining > 0
-              ? Math.round(((attendedLectures + remainingLectures) / totalLecturesWithRemaining) * 100)
-              : 0
-
-          // Only add subjects that have lectures
-          if (totalLectures > 0 || remainingLectures > 0) {
-            allSubjectStats[subject] = {
-              totalLectures,
-              attendedLectures,
-              missedLectures,
-              currentPercentage,
-              canSkip: Math.max(0, canSkip),
-              requiredToAttend: Math.max(0, requiredToAttend),
-              remainingLectures,
-              totalLecturesWithRemaining,
-              requiredForMinimum,
-              isPossibleToReach75,
-              shortByLectures,
-              maxPossiblePercentage,
-              importedData: {
-                theoryTotal: importedData.theoryTotal || 0,
-                theoryAttended: importedData.theoryAttended || 0,
-                labTotal: importedData.labTotal || 0,
-                labAttended: importedData.labAttended || 0,
-              },
+      days.forEach((day) => {
+        // Check shared schedule
+        const sharedSubjects = divisionData.shared?.[day] || []
+        sharedSubjects.forEach((s: any) => {
+          if (s.subject === subjectName) {
+            if (s.type === "theory") {
+              schedule.theory[day] = true
+            } else if (s.type === "lab") {
+              schedule.lab[day] = true
             }
           }
-        }
+        })
 
-        setSubjectStats(allSubjectStats)
-
-        // Set the first subject as selected if none is selected
-        if (!selectedSubject && Object.keys(allSubjectStats).length > 0) {
-          setSelectedSubject(Object.keys(allSubjectStats)[0])
+        // Check batch-specific schedule
+        if (batchData) {
+          const batchSubjects = batchData[day] || []
+          batchSubjects.forEach((s: any) => {
+            if (s.subject === subjectName) {
+              if (s.type === "theory") {
+                schedule.theory[day] = true
+              } else if (s.type === "lab") {
+                schedule.lab[day] = true
+              }
+            }
+          })
         }
-      } catch (error) {
-        console.error("Error loading attendance data:", error)
-      } finally {
-        setIsLoading(false)
-      }
+      })
+
+      return schedule
+    } catch (error) {
+      console.error("[CALCULATOR] Error getting subject schedule:", error)
+      return { theory: {}, lab: {} }
     }
+  }
 
-    loadAllSubjectsData()
-  }, [user?.uid, userProfile])
-
-  // Get imported attendance data from Firebase
-  const getImportedAttendanceData = async (userId: string, subjectName: string) => {
+  // Calculate total expected lectures for a subject in the semester
+  const calculateExpectedLectures = (
+    subjectName: string,
+    startDate: string,
+    endDate: string,
+  ): { theory: number; lab: number } => {
     try {
-      // Fetch imported data from Firebase
+      const start = parseISO(startDate)
+      const end = parseISO(endDate)
+      const allDates = eachDayOfInterval({ start, end })
+      const holidays = getHolidays()
+      const schedule = getSubjectSchedule(subjectName)
+
+      let theoryCount = 0
+      let labCount = 0
+
+      allDates.forEach((date) => {
+        const dateStr = format(date, "yyyy-MM-dd")
+        const dayName = format(date, "EEEE")
+        const dayOfWeek = date.getDay()
+
+        // Skip Sundays and holidays
+        if (dayOfWeek === 0 || holidays.includes(dateStr)) {
+          return
+        }
+
+        if (schedule.theory[dayName]) {
+          theoryCount++
+        }
+        if (schedule.lab[dayName]) {
+          labCount++
+        }
+      })
+
+      return { theory: theoryCount, lab: labCount }
+    } catch (error) {
+      console.error("[CALCULATOR] Error calculating expected lectures:", error)
+      return { theory: 0, lab: 0 }
+    }
+  }
+
+  // Calculate remaining lectures from today until semester end
+  const calculateRemainingLectures = (
+    subjectName: string,
+    semesterEndDate: string,
+  ): { theory: number; lab: number } => {
+    try {
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const end = parseISO(semesterEndDate)
+      if (tomorrow > end) {
+        return { theory: 0, lab: 0 }
+      }
+
+      const remainingDates = eachDayOfInterval({ start: tomorrow, end })
+      const holidays = getHolidays()
+      const schedule = getSubjectSchedule(subjectName)
+
+      let theoryCount = 0
+      let labCount = 0
+
+      remainingDates.forEach((date) => {
+        const dateStr = format(date, "yyyy-MM-dd")
+        const dayName = format(date, "EEEE")
+        const dayOfWeek = date.getDay()
+
+        // Skip Sundays and holidays
+        if (dayOfWeek === 0 || holidays.includes(dateStr)) {
+          return
+        }
+
+        if (schedule.theory[dayName]) {
+          theoryCount++
+        }
+        if (schedule.lab[dayName]) {
+          labCount++
+        }
+      })
+
+      return { theory: theoryCount, lab: labCount }
+    } catch (error) {
+      console.error("[CALCULATOR] Error calculating remaining lectures:", error)
+      return { theory: 0, lab: 0 }
+    }
+  }
+
+  // Get imported attendance data
+  const getImportedData = async (userId: string, subjectName: string) => {
+    try {
       const importedDataRef = doc(db, "importedAttendance", `${userId}_${subjectName}`)
       const importedDoc = await getDoc(importedDataRef)
 
@@ -256,7 +275,6 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView =
           theoryAttended: data.theoryAttended || 0,
           labTotal: data.labTotal || 0,
           labAttended: data.labAttended || 0,
-          startDate: data.importDate || null,
         }
       }
 
@@ -265,141 +283,293 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView =
         theoryAttended: 0,
         labTotal: 0,
         labAttended: 0,
-        startDate: null,
       }
     } catch (error) {
-      console.error("Error fetching imported attendance data:", error)
+      console.error("[CALCULATOR] Error fetching imported data:", error)
       return {
         theoryTotal: 0,
         theoryAttended: 0,
         labTotal: 0,
         labAttended: 0,
-        startDate: null,
       }
     }
   }
 
-  // Calculate remaining lectures
-  const calculateRemainingLectures = async (
-    subjectName: string | null,
-    currentDate: string,
-    semesterEndDate: string,
-    holidays: string[],
-    subjectSchedule: Record<string, boolean>,
-  ): Promise<number> => {
-    if (!subjectName) return 0
+  // Load and calculate attendance data for all subjects
+  useEffect(() => {
+    if (!user?.uid || !userProfile?.division || !userProfile?.batch || !userProfile?.semester) return
 
-    let remainingLectures = 0
-    const currentDateObj = new Date(currentDate)
-    // Add one day to start from tomorrow
-    currentDateObj.setDate(currentDateObj.getDate() + 1)
-    const endDateObj = new Date(semesterEndDate)
+    const loadCalculations = async () => {
+      setIsLoading(true)
+      try {
+        // Get semester settings
+        const semesterSettings = await getSemesterSettings(user.uid)
+        const semesterStartDate = semesterSettings.startDate
+        const semesterEndDate = semesterSettings.endDate
 
-    // Loop through each day from tomorrow until semester end
-    while (currentDateObj <= endDateObj) {
-      const dateStr = format(currentDateObj, "yyyy-MM-dd")
+        // Get user subjects
+        const userSubjects = getUserSubjects()
+        if (userSubjects.length === 0) {
+          setSubjectCalculations({})
+          return
+        }
 
-      // Skip if it's a holiday
-      if (holidays.includes(dateStr)) {
-        currentDateObj.setDate(currentDateObj.getDate() + 1)
-        continue
+        // Get attendance records for the semester
+        const records = await getAttendanceByDateRange(user.uid, semesterStartDate, semesterEndDate)
+        const holidays = getHolidays()
+
+        const calculations: { [subject: string]: SubjectCalculation } = {}
+
+        for (const subject of userSubjects) {
+          // Get imported data
+          const importedData = await getImportedData(user.uid, subject)
+
+          // Calculate expected lectures for the entire semester
+          const expectedLectures = calculateExpectedLectures(subject, semesterStartDate, semesterEndDate)
+
+          // Calculate remaining lectures
+          const remainingLectures = calculateRemainingLectures(subject, semesterEndDate)
+
+          // Count actual attendance from records
+          let theoryAttendedFromRecords = 0
+          let theoryTotalFromRecords = 0
+          let labAttendedFromRecords = 0
+          let labTotalFromRecords = 0
+
+          Object.entries(records).forEach(([date, dateRecords]) => {
+            const dayOfWeek = new Date(date).getDay()
+            if (dayOfWeek === 0 || holidays.includes(date)) {
+              return // Skip Sundays and holidays
+            }
+
+            dateRecords.forEach((record: AttendanceRecord) => {
+              if (record.subject === subject) {
+                if (record.type === "theory") {
+                  theoryTotalFromRecords++
+                  if (record.status === "present") {
+                    theoryAttendedFromRecords++
+                  }
+                } else if (record.type === "lab") {
+                  labTotalFromRecords++
+                  if (record.status === "present") {
+                    labAttendedFromRecords++
+                  }
+                }
+              }
+            })
+          })
+
+          // Combine with imported data
+          const theoryTotalSemester = expectedLectures.theory
+          const theoryAttended = theoryAttendedFromRecords + importedData.theoryAttended
+          const theoryPercentage =
+            theoryTotalSemester > 0 ? Math.round((theoryAttended / theoryTotalSemester) * 100) : 0
+
+          const labTotalSemester = expectedLectures.lab
+          const labAttended = labAttendedFromRecords + importedData.labAttended
+          const labPercentage = labTotalSemester > 0 ? Math.round((labAttended / labTotalSemester) * 100) : 0
+
+          // Calculate requirements for 75%
+          const theoryRequired75 = Math.ceil(theoryTotalSemester * 0.75)
+          const labRequired75 = Math.ceil(labTotalSemester * 0.75)
+
+          // Calculate how many more needed to reach 75%
+          const theoryNeedToAttend = Math.max(0, theoryRequired75 - theoryAttended)
+          const labNeedToAttend = Math.max(0, labRequired75 - labAttended)
+
+          // Calculate how many can be skipped while maintaining 75%
+          const theoryCanSkip = Math.max(0, theoryAttended - theoryRequired75)
+          const labCanSkip = Math.max(0, labAttended - labRequired75)
+
+          // Check if 75% is achievable
+          const theoryCanReach75 = theoryAttended + remainingLectures.theory >= theoryRequired75
+          const labCanReach75 = labAttended + remainingLectures.lab >= labRequired75
+
+          // Calculate maximum possible percentage
+          const theoryMaxPossible =
+            theoryTotalSemester > 0
+              ? Math.round(((theoryAttended + remainingLectures.theory) / theoryTotalSemester) * 100)
+              : 0
+          const labMaxPossible =
+            labTotalSemester > 0 ? Math.round(((labAttended + remainingLectures.lab) / labTotalSemester) * 100) : 0
+
+          calculations[subject] = {
+            subject,
+            theoryTotalSemester,
+            theoryAttended,
+            theoryPercentage,
+            theoryCanSkip,
+            theoryNeedToAttend,
+            theoryMaxPossible,
+            labTotalSemester,
+            labAttended,
+            labPercentage,
+            labCanSkip,
+            labNeedToAttend,
+            labMaxPossible,
+            theoryRemaining: remainingLectures.theory,
+            labRemaining: remainingLectures.lab,
+            theoryCanReach75,
+            labCanReach75,
+            importedData,
+          }
+        }
+
+        setSubjectCalculations(calculations)
+
+        // Set first subject as selected if none selected
+        if (!selectedSubject && Object.keys(calculations).length > 0) {
+          setSelectedSubject(Object.keys(calculations)[0])
+        }
+      } catch (error) {
+        console.error("[CALCULATOR] Error loading calculations:", error)
+      } finally {
+        setIsLoading(false)
       }
-
-      // Check if this day has a theory lecture for the subject
-      const dayOfWeek = getDayOfWeek(dateStr)
-      if (subjectSchedule[dayOfWeek]) {
-        // Only count theory lectures, not lab
-        remainingLectures++
-      }
-
-      // Move to next day
-      currentDateObj.setDate(currentDateObj.getDate() + 1)
     }
 
-    return remainingLectures
-  }
+    loadCalculations()
+  }, [user?.uid, userProfile])
 
-  // Get color based on attendance percentage
+  // Get status color based on percentage
   const getStatusColor = (percentage: number) => {
-    if (percentage >= 75) {
-      return theme.success
-    } else if (percentage >= 60) {
-      return theme.warning
-    } else {
-      return theme.error
-    }
+    if (percentage >= 75) return theme.success || "#10b981"
+    if (percentage >= 60) return theme.warning || "#f59e0b"
+    return theme.error || "#ef4444"
   }
 
-  // Render a subject card
+  // Render subject card for tab view
   const renderSubjectCard = (subject: string) => {
-    const stats = subjectStats[subject]
-    if (!stats) return null
+    const calc = subjectCalculations[subject]
+    if (!calc) return null
 
     return (
-      <View
-        style={[
-          styles.subjectCard,
-          {
-            backgroundColor: theme.card,
-            borderLeftColor: getStatusColor(stats.currentPercentage),
-          },
-        ]}
-      >
+      <View style={[styles.subjectCard, { backgroundColor: theme.card }]}>
         <View style={styles.subjectHeader}>
           <Text style={[styles.subjectName, { color: theme.text }]}>{subject}</Text>
-          <View style={[styles.percentageBadge, { backgroundColor: getStatusColor(stats.currentPercentage) }]}>
-            <Text style={styles.percentageText}>{stats.currentPercentage}%</Text>
+          <View style={styles.percentageContainer}>
+            <View style={[styles.percentageBadge, { backgroundColor: getStatusColor(calc.theoryPercentage) }]}>
+              <Text style={styles.percentageText}>T: {calc.theoryPercentage}%</Text>
+            </View>
+            <View
+              style={[styles.percentageBadge, { backgroundColor: getStatusColor(calc.labPercentage), marginLeft: 8 }]}
+            >
+              <Text style={styles.percentageText}>L: {calc.labPercentage}%</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attended</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>
-              {stats.attendedLectures}/{stats.totalLectures}
+        {/* Theory Section */}
+        <View style={[styles.typeSection, { borderLeftColor: "#4f46e5" }]}>
+          <Text style={[styles.typeTitle, { color: "#4f46e5" }]}>Theory Lectures</Text>
+
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Semester</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryTotalSemester}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attended</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryAttended}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Remaining</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryRemaining}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Can Skip</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryCanSkip}</Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.requirementCard,
+              {
+                backgroundColor: calc.theoryCanReach75 ? theme.success + "20" : theme.error + "20",
+              },
+            ]}
+          >
+            <Ionicons
+              name={calc.theoryCanReach75 ? "checkmark-circle" : "alert-circle"}
+              size={20}
+              color={calc.theoryCanReach75 ? theme.success : theme.error}
+            />
+            <Text
+              style={[
+                styles.requirementText,
+                {
+                  color: calc.theoryCanReach75 ? theme.success : theme.error,
+                },
+              ]}
+            >
+              {calc.theoryCanReach75
+                ? `Need ${calc.theoryNeedToAttend} more to reach 75%`
+                : `Cannot reach 75% (Max: ${calc.theoryMaxPossible}%)`}
             </Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Remaining</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.remainingLectures}</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Can Skip</Text>
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.canSkip}</Text>
           </View>
         </View>
 
-        {stats.isPossibleToReach75 ? (
-          <View style={[styles.resultItem, { backgroundColor: theme.present + "30" }]}>
-            <Ionicons name="checkmark-circle" size={20} color={theme.success} />
-            <Text style={[styles.resultText, { color: theme.success }]}>
-              Need to attend {Math.max(0, stats.requiredForMinimum - stats.attendedLectures)} out of{" "}
-              {stats.remainingLectures} remaining lectures
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.resultItem, { backgroundColor: theme.absent + "30" }]}>
-            <Ionicons name="alert-circle" size={20} color={theme.error} />
-            <Text style={[styles.resultText, { color: theme.error }]}>
-              Cannot reach 75% - short by {stats.shortByLectures} lecture{stats.shortByLectures !== 1 ? "s" : ""}
-            </Text>
-          </View>
-        )}
+        {/* Lab Section */}
+        <View style={[styles.typeSection, { borderLeftColor: "#0ea5e9" }]}>
+          <Text style={[styles.typeTitle, { color: "#0ea5e9" }]}>Lab Sessions</Text>
 
-        <Text style={[styles.maxPossible, { color: theme.secondaryText }]}>
-          Maximum possible: {stats.maxPossiblePercentage}% if you attend all remaining lectures
-        </Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Semester</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labTotalSemester}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attended</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labAttended}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Remaining</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labRemaining}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Can Skip</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labCanSkip}</Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.requirementCard,
+              {
+                backgroundColor: calc.labCanReach75 ? theme.success + "20" : theme.error + "20",
+              },
+            ]}
+          >
+            <Ionicons
+              name={calc.labCanReach75 ? "checkmark-circle" : "alert-circle"}
+              size={20}
+              color={calc.labCanReach75 ? theme.success : theme.error}
+            />
+            <Text
+              style={[
+                styles.requirementText,
+                {
+                  color: calc.labCanReach75 ? theme.success : theme.error,
+                },
+              ]}
+            >
+              {calc.labCanReach75
+                ? `Need ${calc.labNeedToAttend} more to reach 75%`
+                : `Cannot reach 75% (Max: ${calc.labMaxPossible}%)`}
+            </Text>
+          </View>
+        </View>
       </View>
     )
   }
 
-  // Update the tab view rendering to improve UI consistency
-  // If in tab view, render all subjects in a list
+  // Tab view - show all subjects
   if (isTabView) {
-    const subjects = Object.keys(subjectStats).sort((a, b) => {
-      const aPercentage = subjectStats[a].currentPercentage
-      const bPercentage = subjectStats[b].currentPercentage
-      return aPercentage - bPercentage // Sort by percentage ascending (lowest first)
+    const subjects = Object.keys(subjectCalculations).sort((a, b) => {
+      const aAvg = (subjectCalculations[a].theoryPercentage + subjectCalculations[a].labPercentage) / 2
+      const bAvg = (subjectCalculations[b].theoryPercentage + subjectCalculations[b].labPercentage) / 2
+      return aAvg - bAvg // Sort by average percentage ascending (lowest first)
     })
 
     return (
@@ -410,23 +580,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView =
             <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Calculating attendance...</Text>
           </View>
         ) : subjects.length === 0 ? (
-          <View
-            style={[
-              styles.emptyContainer,
-              {
-                backgroundColor: theme.card,
-                borderRadius: spacing.borderRadius.large,
-                padding: spacing.xl,
-                ...createShadow(1),
-              },
-            ]}
-          >
+          <View style={[styles.emptyContainer, { backgroundColor: theme.card }]}>
             <Ionicons name="calculator-outline" size={40} color={theme.secondaryText} />
-            <Text style={[styles.emptyText, { color: theme.text, fontWeight: "600", marginTop: spacing.md }]}>
-              No attendance data available
-            </Text>
-            <Text style={[{ color: theme.secondaryText, textAlign: "center", marginTop: spacing.sm }]}>
-              Start marking attendance to see calculations.
+            <Text style={[styles.emptyText, { color: theme.text }]}>No attendance data available</Text>
+            <Text style={[styles.emptySubtext, { color: theme.secondaryText }]}>
+              Start marking attendance to see calculations
             </Text>
           </View>
         ) : (
@@ -442,13 +600,13 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView =
     )
   }
 
-  // Original component with subject selector
+  // Single subject view with selector
   return (
     <View style={[styles.container, { backgroundColor: theme.card }]}>
       <View style={styles.content}>
         {/* Subject Selector */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subjectSelector}>
-          {Object.keys(subjectStats).map((subject) => (
+          {Object.keys(subjectCalculations).map((subject) => (
             <TouchableOpacity
               key={subject}
               style={[
@@ -470,107 +628,16 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({ isTabView =
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Calculating attendance...</Text>
+            <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Calculating...</Text>
           </View>
-        ) : !selectedSubject ? (
+        ) : !selectedSubject || !subjectCalculations[selectedSubject] ? (
           <View style={styles.noSubjectContainer}>
             <Text style={[styles.noSubjectText, { color: theme.secondaryText }]}>
-              Please select a subject to view attendance calculations
+              Select a subject to view calculations
             </Text>
           </View>
         ) : (
-          <>
-            <View style={styles.resultContainer}>
-              {selectedSubject && subjectStats[selectedSubject] && (
-                <>
-                  <View
-                    style={[
-                      styles.resultItem,
-                      { backgroundColor: theme.card, borderLeftColor: theme.primary, borderLeftWidth: 4 },
-                    ]}
-                  >
-                    <Ionicons name="calendar-outline" size={24} color={theme.primary} />
-                    <View style={styles.resultTextContainer}>
-                      <Text style={[styles.resultTitle, { color: theme.primary }]}>
-                        {subjectStats[selectedSubject].remainingLectures} lectures remaining until semester end
-                      </Text>
-                      <Text style={[styles.resultDescription, { color: theme.secondaryText }]}>
-                        Total for semester: {subjectStats[selectedSubject].totalLecturesWithRemaining} lectures
-                      </Text>
-                    </View>
-                  </View>
-
-                  {subjectStats[selectedSubject].isPossibleToReach75 ? (
-                    <View
-                      style={[
-                        styles.resultItem,
-                        { backgroundColor: theme.card, borderLeftColor: theme.success, borderLeftWidth: 4 },
-                      ]}
-                    >
-                      <Ionicons name="checkmark-circle" size={24} color={theme.success} />
-                      <View style={styles.resultTextContainer}>
-                        <Text style={[styles.resultTitle, { color: theme.success }]}>
-                          You need to attend{" "}
-                          {Math.max(
-                            0,
-                            subjectStats[selectedSubject].requiredForMinimum -
-                              subjectStats[selectedSubject].attendedLectures,
-                          )}{" "}
-                          out of {subjectStats[selectedSubject].remainingLectures} remaining lectures
-                        </Text>
-                        <Text style={[styles.resultDescription, { color: theme.secondaryText }]}>
-                          To reach the minimum 75% attendance
-                        </Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.resultItem,
-                        { backgroundColor: theme.card, borderLeftColor: theme.error, borderLeftWidth: 4 },
-                      ]}
-                    >
-                      <Ionicons name="alert-circle" size={24} color={theme.error} />
-                      <View style={styles.resultTextContainer}>
-                        <Text style={[styles.resultTitle, { color: theme.error }]}>
-                          Cannot reach 75% attendance - short by {subjectStats[selectedSubject].shortByLectures} lecture
-                          {subjectStats[selectedSubject].shortByLectures !== 1 ? "s" : ""}
-                        </Text>
-                        <Text style={[styles.resultDescription, { color: theme.secondaryText }]}>
-                          Maximum possible: {subjectStats[selectedSubject].maxPossiblePercentage}% if you attend all
-                          remaining lectures
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <View
-                    style={[
-                      styles.resultItem,
-                      { backgroundColor: theme.card, borderLeftColor: theme.info, borderLeftWidth: 4 },
-                    ]}
-                  >
-                    <Ionicons name="information-circle" size={24} color={theme.info} />
-                    <View style={styles.resultTextContainer}>
-                      <Text style={[styles.resultTitle, { color: theme.info }]}>
-                        Current attendance: {subjectStats[selectedSubject].attendedLectures}/
-                        {subjectStats[selectedSubject].totalLectures} ({subjectStats[selectedSubject].currentPercentage}
-                        %)
-                      </Text>
-                      <Text style={[styles.resultDescription, { color: theme.secondaryText }]}>
-                        Need {subjectStats[selectedSubject].requiredForMinimum} lectures for 75% of total{" "}
-                        {subjectStats[selectedSubject].totalLecturesWithRemaining}
-                      </Text>
-                    </View>
-                  </View>
-                </>
-              )}
-            </View>
-
-            <Text style={[styles.disclaimer, { color: theme.secondaryText }]}>
-              * Calculations are based on theory lectures only. Lab attendance is expected to be 100%.
-            </Text>
-          </>
+          renderSubjectCard(selectedSubject)
         )}
       </View>
     </View>
@@ -581,27 +648,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: spacing.borderRadius.large,
     overflow: "hidden",
-    ...createShadow(1),
     marginBottom: spacing.md,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
-  },
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  icon: {
-    marginRight: spacing.sm,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "600",
   },
   content: {
     padding: spacing.md,
@@ -624,7 +671,7 @@ const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.md,
+    padding: spacing.xl,
   },
   loadingText: {
     marginTop: spacing.sm,
@@ -633,70 +680,51 @@ const styles = StyleSheet.create({
   noSubjectContainer: {
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.md,
+    padding: spacing.xl,
   },
   noSubjectText: {
     fontSize: 14,
     textAlign: "center",
   },
-  resultContainer: {
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  resultItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.md,
-    borderRadius: spacing.borderRadius.large,
-    ...createShadow(1),
-  },
-  resultTextContainer: {
-    marginLeft: spacing.md,
-    flex: 1,
-  },
-  resultTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: spacing.xs,
-  },
-  resultDescription: {
-    fontSize: 12,
-  },
-  disclaimer: {
-    fontSize: 12,
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: spacing.sm,
-  },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
     padding: spacing.xl,
+    borderRadius: spacing.borderRadius.large,
+    // ...createShadow(1),
   },
   emptyText: {
     fontSize: 16,
-    textAlign: "center",
+    fontWeight: "600",
     marginTop: spacing.md,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: spacing.sm,
   },
   subjectList: {
     padding: spacing.sm,
   },
   subjectCard: {
     borderRadius: spacing.borderRadius.large,
-    padding: spacing.md,
+    padding: spacing.lg,
     marginBottom: spacing.md,
-    borderLeftWidth: 4,
-    ...createShadow(1),
+    ...createShadow(2),
   },
   subjectHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
   },
   subjectName: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  percentageContainer: {
+    flexDirection: "row",
   },
   percentageBadge: {
     paddingHorizontal: spacing.sm,
@@ -706,34 +734,50 @@ const styles = StyleSheet.create({
   percentageText: {
     color: "white",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 12,
   },
-  statsRow: {
+  typeSection: {
+    borderLeftWidth: 4,
+    paddingLeft: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  typeTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: spacing.md,
+  },
+  statsGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   statItem: {
+    width: "48%",
     alignItems: "center",
+    marginBottom: spacing.sm,
   },
   statLabel: {
     fontSize: 12,
     marginBottom: spacing.xs,
+    textAlign: "center",
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
   },
-  resultText: {
+  requirementCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.large,
+  },
+  requirementText: {
     marginLeft: spacing.sm,
     fontSize: 14,
     fontWeight: "500",
     flex: 1,
-  },
-  maxPossible: {
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: spacing.sm,
   },
 })
 

@@ -13,25 +13,24 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Platform,
+  StatusBar,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
+import { LinearGradient } from "expo-linear-gradient"
 import { Ionicons } from "@expo/vector-icons"
 import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
 import { colors } from "../utils/theme"
-import { format, parseISO, addDays, subDays, isSameDay } from "date-fns"
+import { format, parseISO, addDays, subDays, isSameDay, isWithinInterval } from "date-fns"
 import {
   saveManualRecord,
   getAttendanceByDate,
   deleteManualRecord,
   type AttendanceRecord,
 } from "../firebase/attendanceService"
-import { AllSubjects } from "../timetable"
+import { getSemesterSettings } from "../firebase/semesterService"
+import { getSubjectsForSemester } from "../timetable"
 import { useToast } from "../context/ToastContext"
-import Header from "../components/Header"
-
-// Import the spacing utilities
 import { spacing, createShadow } from "../utils/spacing"
 
 type ManualAttendanceRecord = {
@@ -47,8 +46,7 @@ type ManualAttendanceRecord = {
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
 
 export default function ManualAttendanceScreen() {
-  const { userProfile } = useUser()
-  const { user } = useUser()
+  const { userProfile, user } = useUser()
   const { isDarkMode } = useTheme()
   const theme = isDarkMode ? colors.dark : colors.light
   const { showToast } = useToast()
@@ -59,19 +57,20 @@ export default function ManualAttendanceScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"))
   const [searchQuery, setSearchQuery] = useState("")
-  const [refreshKey, setRefreshKey] = useState(0) // Used to force refresh
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [semesterSubjects, setSemesterSubjects] = useState<string[]>([])
+  const [semesterSettings, setSemesterSettings] = useState<{
+    startDate: string
+    endDate: string
+  } | null>(null)
 
   // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current
-  const slideAnim = useRef(new Animated.Value(50)).current
   const addButtonScale = useRef(new Animated.Value(1)).current
-  const [showSuccessToast, setShowSuccessToast] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
-
-  // Simple date picker modal
-  const [datePickerVisible, setDatePickerVisible] = useState(false)
-  const [tempDate, setTempDate] = useState(selectedDate) // Temporary date for the picker
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState("")
+
+  // Date picker modal
+  const [datePickerVisible, setDatePickerVisible] = useState(false)
+  const [tempDate, setTempDate] = useState(selectedDate)
   const datePickerSlide = useRef(new Animated.Value(300)).current
 
   // Form state for adding new record
@@ -87,53 +86,31 @@ export default function ManualAttendanceScreen() {
     notes: "",
   })
 
+  // Load semester settings and subjects
+  useEffect(() => {
+    const loadSemesterData = async () => {
+      if (!user?.uid || !userProfile?.semester) return
+
+      try {
+        // Load semester settings
+        const settings = await getSemesterSettings(user.uid)
+        setSemesterSettings(settings)
+
+        // Load subjects for the current semester
+        const subjects = getSubjectsForSemester(userProfile.semester)
+        setSemesterSubjects(subjects)
+      } catch (error) {
+        console.error("Error loading semester data:", error)
+      }
+    }
+
+    loadSemesterData()
+  }, [user?.uid, userProfile?.semester])
+
   // Update day of week when selected date changes
   useEffect(() => {
     setSelectedDayOfWeek(format(parseISO(selectedDate), "EEEE"))
   }, [selectedDate])
-
-  // Show success toast
-  // Remove this function
-  // const showToast = (message: string) => {
-  //   setSuccessMessage(message)
-  //   setShowSuccessToast(true)
-
-  //   // Reset animation values
-  //   fadeAnim.setValue(0)
-  //   slideAnim.setValue(50)
-
-  //   // Animate in
-  //   Animated.parallel([
-  //     Animated.timing(fadeAnim, {
-  //       toValue: 1,
-  //       duration: 300,
-  //       useNativeDriver: true,
-  //     }),
-  //     Animated.timing(slideAnim, {
-  //       toValue: 0,
-  //       duration: 300,
-  //       useNativeDriver: true,
-  //     }),
-  //   ]).start()
-
-  //   // Animate out after delay
-  //   setTimeout(() => {
-  //     Animated.parallel([
-  //       Animated.timing(fadeAnim, {
-  //         toValue: 0,
-  //         duration: 300,
-  //         useNativeDriver: true,
-  //       }),
-  //       Animated.timing(slideAnim, {
-  //         toValue: 50,
-  //         duration: 300,
-  //         useNativeDriver: true,
-  //       }),
-  //     ]).start(() => {
-  //       setShowSuccessToast(false)
-  //     })
-  //   }, 2500)
-  // }
 
   // Load records for the selected date
   const loadRecords = useCallback(async () => {
@@ -143,12 +120,30 @@ export default function ManualAttendanceScreen() {
     try {
       const fetchedRecords = await getAttendanceByDate(user.uid, selectedDate)
 
+      // Filter records by semester if semester settings are available
+      let filteredRecords = fetchedRecords
+      if (semesterSettings && semesterSubjects.length > 0) {
+        // Check if the selected date is within the semester
+        const isDateInSemester = isWithinInterval(parseISO(selectedDate), {
+          start: parseISO(semesterSettings.startDate),
+          end: parseISO(semesterSettings.endDate),
+        })
+
+        if (isDateInSemester) {
+          // Filter records to only show subjects from the current semester
+          filteredRecords = fetchedRecords.filter((record) => semesterSubjects.includes(record.subject))
+        } else {
+          // If date is outside semester, show no records
+          filteredRecords = []
+        }
+      }
+
       // Convert to our internal format
-      const formattedRecords: ManualAttendanceRecord[] = fetchedRecords.map((record) => ({
+      const formattedRecords: ManualAttendanceRecord[] = filteredRecords.map((record) => ({
         id: record.id || `${record.subject}_${record.type}_${Date.now()}`,
         subject: record.subject,
         type: record.type,
-        status: record.status || "present", // Default to present if status is missing
+        status: record.status || "present",
         date: selectedDate,
         notes: record.notes || "",
         isManual: record.isManual || record.notes?.includes("[MANUAL]") || false,
@@ -157,11 +152,14 @@ export default function ManualAttendanceScreen() {
       setRecords(formattedRecords)
     } catch (error) {
       console.error("Error loading records:", error)
-      Alert.alert("Error", "Failed to load attendance records")
+      showToast({
+        message: "Failed to load attendance records",
+        type: "error",
+      })
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate, user?.uid])
+  }, [selectedDate, user?.uid, semesterSettings, semesterSubjects, showToast])
 
   // Load records when component mounts or date changes
   useEffect(() => {
@@ -186,6 +184,22 @@ export default function ManualAttendanceScreen() {
       return
     }
 
+    // Check if the selected date is within the semester
+    if (semesterSettings) {
+      const isDateInSemester = isWithinInterval(parseISO(selectedDate), {
+        start: parseISO(semesterSettings.startDate),
+        end: parseISO(semesterSettings.endDate),
+      })
+
+      if (!isDateInSemester) {
+        showToast({
+          message: "Selected date is outside the current semester",
+          type: "warning",
+        })
+        return
+      }
+    }
+
     setIsSaving(true)
     try {
       const recordId = `${newRecord.subject}_${newRecord.type}_${Date.now()}`
@@ -201,10 +215,8 @@ export default function ManualAttendanceScreen() {
         isManual: true,
       }
 
-      // Save to Firebase
       await saveManualRecord(user.uid, recordToSave)
 
-      // Reset form and close modal
       setNewRecord({
         subject: "",
         type: "theory",
@@ -212,11 +224,8 @@ export default function ManualAttendanceScreen() {
         notes: "",
       })
       setModalVisible(false)
-
-      // Force refresh the records
       setRefreshKey((prev) => prev + 1)
 
-      // Show success toast
       showToast({
         message: "Record added successfully",
         type: "success",
@@ -244,25 +253,24 @@ export default function ManualAttendanceScreen() {
         onPress: async () => {
           try {
             await deleteManualRecord(user.uid, selectedDate, recordId)
-
-            // Update local state
             setRecords((prev) => prev.filter((record) => record.id !== recordId))
-
-            // Show success toast
             showToast({
               message: "Record deleted successfully",
               type: "success",
             })
           } catch (error) {
             console.error("Error deleting record:", error)
-            Alert.alert("Error", "Failed to delete record")
+            showToast({
+              message: "Failed to delete record",
+              type: "error",
+            })
           }
         },
       },
     ])
   }
 
-  // Change date functions
+  // Date navigation functions
   const goToPreviousDay = () => {
     const currentDate = parseISO(tempDate)
     const previousDay = subDays(currentDate, 1)
@@ -272,17 +280,13 @@ export default function ManualAttendanceScreen() {
   const goToNextDay = () => {
     const currentDate = parseISO(tempDate)
     const nextDay = addDays(currentDate, 1)
-    // Don't allow selecting future dates beyond tomorrow
     if (nextDay <= addDays(new Date(), 1)) {
       setTempDate(format(nextDay, "yyyy-MM-dd"))
     }
   }
 
-  // Confirm date selection
   const confirmDateSelection = () => {
     setSelectedDate(tempDate)
-
-    // Animate date picker out
     Animated.timing(datePickerSlide, {
       toValue: 300,
       duration: 300,
@@ -292,12 +296,9 @@ export default function ManualAttendanceScreen() {
     })
   }
 
-  // Open date picker
   const openDatePicker = () => {
-    setTempDate(selectedDate) // Initialize temp date with current selection
+    setTempDate(selectedDate)
     setDatePickerVisible(true)
-
-    // Animate date picker in
     datePickerSlide.setValue(300)
     Animated.timing(datePickerSlide, {
       toValue: 0,
@@ -306,9 +307,7 @@ export default function ManualAttendanceScreen() {
     }).start()
   }
 
-  // Animate add button on press
   const animateAddButton = () => {
-    // Sequence of scaling down and up
     Animated.sequence([
       Animated.timing(addButtonScale, {
         toValue: 0.95,
@@ -363,14 +362,21 @@ export default function ManualAttendanceScreen() {
     }
   }
 
-  // Simple date picker component
+  // Check if selected date is within semester
+  const isDateInSemester = semesterSettings
+    ? isWithinInterval(parseISO(selectedDate), {
+        start: parseISO(semesterSettings.startDate),
+        end: parseISO(semesterSettings.endDate),
+      })
+    : true
+
+  // Date picker component
   const renderDatePicker = () => (
     <Modal
       animationType="none"
       transparent={true}
       visible={datePickerVisible}
       onRequestClose={() => {
-        // Animate out on back button
         Animated.timing(datePickerSlide, {
           toValue: 300,
           duration: 300,
@@ -394,7 +400,6 @@ export default function ManualAttendanceScreen() {
             <Text style={[styles.modalTitle, { color: theme.text }]}>Select Date</Text>
             <TouchableOpacity
               onPress={() => {
-                // Animate out on close
                 Animated.timing(datePickerSlide, {
                   toValue: 300,
                   duration: 300,
@@ -410,21 +415,10 @@ export default function ManualAttendanceScreen() {
           </View>
 
           <View style={styles.calendarView}>
-            {/* Current month and year */}
             <Text style={[styles.calendarMonth, { color: theme.text }]}>{format(parseISO(tempDate), "MMMM yyyy")}</Text>
 
-            {/* Calendar grid */}
             <View style={styles.calendarGrid}>
-              {/* Days of week */}
-              <View style={styles.weekdayHeader}>
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => (
-                  <Text key={index} style={[styles.weekdayText, { color: theme.secondaryText }]}>
-                    {day}
-                  </Text>
-                ))}
-              </View>
 
-              {/* Date selector */}
               <View style={styles.dateSelector}>
                 <TouchableOpacity
                   style={[styles.dateNavButton, { backgroundColor: theme.primary }]}
@@ -448,7 +442,6 @@ export default function ManualAttendanceScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Today indicator */}
               {isSameDay(parseISO(tempDate), new Date()) && (
                 <View style={styles.todayIndicator}>
                   <Text style={[styles.todayText, { color: theme.primary }]}>Today</Text>
@@ -468,432 +461,501 @@ export default function ManualAttendanceScreen() {
     </Modal>
   )
 
-  return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={["bottom"]}>
-      <Header
-        title="Oops Present"
-        subtitle={
-          userProfile?.division ? `Division ${userProfile.division} - Batch ${userProfile.batch}` : "Manual Attendance"
-        }
-      />
-
-      {/* Success Toast */}
-      {showSuccessToast && (
-        <Animated.View
-          style={[
-            styles.toast,
-            {
-              backgroundColor: theme.present,
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <Ionicons name="checkmark-circle" size={20} color={theme.presentText} />
-          <Text style={[styles.toastText, { color: theme.presentText }]}>{successMessage}</Text>
-        </Animated.View>
-      )}
-
-      <View style={styles.container}>
-        {/* Date display */}
-        <View style={[styles.dateDisplay, { backgroundColor: theme.card }]}>
-          <View style={styles.dateInfo}>
-            <Text style={[styles.dayOfWeek, { color: theme.primary }]}>{selectedDayOfWeek}</Text>
-            <Text style={[styles.fullDate, { color: theme.text }]}>
-              {format(parseISO(selectedDate), "MMMM d, yyyy")}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.datePickerButton, { backgroundColor: theme.primary + "15" }]}
-            onPress={openDatePicker}
-          >
-            <Ionicons name="calendar" size={22} color={theme.primary} />
-          </TouchableOpacity>
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.logoContainer}>
+        <View style={[styles.logoCircle, { backgroundColor: theme.primary }]}>
+          <Ionicons name="create" size={28} color="white" />
         </View>
-
-        {/* Search and refresh bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
-          <View style={[styles.searchInputContainer, { backgroundColor: isDarkMode ? theme.background : "#f9fafb" }]}>
-            <Ionicons name="search" size={18} color={theme.secondaryText} style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, { color: theme.text }]}
-              placeholder="Search records..."
-              placeholderTextColor={theme.secondaryText}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery("")}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close-circle" size={18} color={theme.secondaryText} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <TouchableOpacity
-            style={[styles.refreshButton, { backgroundColor: theme.primary }]}
-            onPress={() => setRefreshKey((prev) => prev + 1)}
-          >
-            <Ionicons name="refresh" size={18} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Records count */}
-        <View style={styles.recordsCountContainer}>
-          <Text style={[styles.recordsCount, { color: theme.secondaryText }]}>
-            {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
+        <View style={styles.headerText}>
+          <Text style={[styles.appName, { color: theme.text }]}>Manual Attendance</Text>
+          <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
+            {userProfile?.division
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
+                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+                }`
+              : "Add attendance records manually"}
           </Text>
         </View>
+      </View>
+    </View>
+  )
 
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-            <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading records...</Text>
-          </View>
-        ) : (
-          <ScrollView
-            style={styles.recordsList}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
-          >
-            {filteredRecords.length > 0 ? (
-              filteredRecords.map((record) => {
-                const statusColors = getStatusColor(record.status)
+  return (
+    <View style={styles.fullScreenContainer}>
+      {/* Status Bar Configuration */}
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent={true}
+      />
 
-                return (
-                  <View
-                    key={record.id}
-                    style={[
-                      styles.recordCard,
-                      {
-                        backgroundColor: theme.card,
-                        borderLeftColor: record.isManual ? theme.warning : theme.primary,
-                      },
-                    ]}
-                  >
-                    <View style={styles.recordHeader}>
-                      <View style={styles.subjectContainer}>
-                        <Text style={[styles.subjectText, { color: theme.text }]}>{record.subject}</Text>
-                        <View style={[styles.typeTag, { backgroundColor: isDarkMode ? theme.background : "#f3f4f6" }]}>
-                          <Text style={[styles.typeText, { color: theme.secondaryText }]}>
-                            {record.type.toUpperCase()}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-                        <Ionicons
-                          name={statusColors.icon}
-                          size={14}
-                          color={statusColors.text}
-                          style={{ marginRight: 4 }}
-                        />
-                        <Text style={[styles.statusText, { color: statusColors.text }]}>
-                          {record.status === "cancelled" ? "CANCELLED" : record.status.toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
+      <LinearGradient colors={[theme.primary + "10", theme.background]} style={styles.container}>
+        {/* Decorative circles */}
+        <View style={[styles.circle, styles.circle1, { backgroundColor: theme.primary + "20" }]} />
+        <View style={[styles.circle, styles.circle2, { backgroundColor: theme.primary + "15" }]} />
+        <View style={[styles.circle, styles.circle3, { backgroundColor: theme.primary + "10" }]} />
 
-                    {record.notes && (
-                      <Text style={[styles.notesText, { color: theme.secondaryText }]}>
-                        {record.notes.replace("[MANUAL]", "")}
-                      </Text>
-                    )}
+        <SafeAreaView style={styles.safeArea} edges={[]}>
+          <View style={styles.statusBarSpacer} />
+          {renderHeader()}
 
-                    {record.isManual && (
-                      <View style={[styles.recordActions, { borderTopColor: theme.border }]}>
-                        <TouchableOpacity
-                          style={[styles.actionButton, { backgroundColor: theme.error + "15" }]}
-                          onPress={() => deleteRecord(record.id)}
-                        >
-                          <Ionicons name="trash-outline" size={16} color={theme.error} />
-                          <Text style={[styles.actionText, { color: theme.error }]}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                )
-              })
-            ) : (
-              <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
-                <View style={[styles.emptyStateIcon, { backgroundColor: theme.primary + "15" }]}>
-                  <Ionicons name="calendar-outline" size={40} color={theme.primary} />
-                </View>
-                <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Records Found</Text>
-                <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
-                  {searchQuery
-                    ? "No records match your search criteria"
-                    : "Tap the + button to add a manual attendance record"}
+          <View style={styles.content}>
+            {/* Date display card */}
+            <View style={[styles.dateDisplay, { backgroundColor: theme.card }]}>
+              <View style={styles.dateInfo}>
+                <Text style={[styles.dayOfWeek, { color: theme.primary }]}>{selectedDayOfWeek}</Text>
+                <Text style={[styles.fullDate, { color: theme.text }]}>
+                  {format(parseISO(selectedDate), "MMMM d, yyyy")}
                 </Text>
+                {!isDateInSemester && (
+                  <View style={[styles.warningBadge, { backgroundColor: theme.warning + "20" }]}>
+                    <Ionicons name="warning" size={12} color={theme.warning} />
+                    <Text style={[styles.warningText, { color: theme.warning }]}>Outside semester</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </ScrollView>
-        )}
+              <TouchableOpacity
+                style={[styles.datePickerButton, { backgroundColor: theme.primary + "15" }]}
+                onPress={openDatePicker}
+              >
+                <Ionicons name="calendar" size={22} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
 
-        {/* Add button */}
-        <Animated.View
-          style={{
-            transform: [{ scale: addButtonScale }],
-            position: "absolute",
-            bottom: 24,
-            right: 24,
-          }}
-        >
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: theme.primary }]}
-            onPress={animateAddButton}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Date Picker */}
-        {renderDatePicker()}
-
-        {/* Add Record Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>Add Manual Record</Text>
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={24} color={theme.text} />
-                </TouchableOpacity>
+            {/* Search and refresh bar */}
+            <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
+              <View
+                style={[styles.searchInputContainer]}
+              >
+                <Ionicons name="search" size={18} color={theme.secondaryText} style={styles.searchIcon} />
+                <TextInput
+                  style={[styles.searchInput, { color: theme.text }]}
+                  placeholder="Search records..."
+                  placeholderTextColor={theme.secondaryText}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setSearchQuery("")}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close-circle" size={18} color={theme.secondaryText} />
+                  </TouchableOpacity>
+                )}
               </View>
+              <TouchableOpacity
+                style={[styles.refreshButton, { backgroundColor: theme.primary }]}
+                onPress={() => setRefreshKey((prev) => prev + 1)}
+              >
+                <Ionicons name="refresh" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Subject</Text>
-                <View
-                  style={[
-                    styles.pickerContainer,
-                    { backgroundColor: isDarkMode ? theme.background : "#f9fafb", borderColor: theme.border },
-                  ]}
-                >
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {AllSubjects.map((subject) => (
-                      <TouchableOpacity
-                        key={subject}
+            {/* Records count */}
+            <View style={styles.recordsCountContainer}>
+              <Text style={[styles.recordsCount, { color: theme.secondaryText }]}>
+                {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} found
+              </Text>
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={theme.primary} />
+                <Text style={[styles.loadingText, { color: theme.secondaryText }]}>Loading records...</Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.recordsList}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+              >
+                {filteredRecords.length > 0 ? (
+                  filteredRecords.map((record) => {
+                    const statusColors = getStatusColor(record.status)
+
+                    return (
+                      <View
+                        key={record.id}
                         style={[
-                          styles.subjectChip,
+                          styles.recordCard,
                           {
-                            backgroundColor: newRecord.subject === subject ? theme.primary : "transparent",
-                            borderColor: theme.border,
+                            backgroundColor: theme.card,
+                            borderLeftColor: record.isManual ? theme.warning : theme.primary,
                           },
                         ]}
-                        onPress={() => setNewRecord({ ...newRecord, subject })}
                       >
-                        <Text
-                          style={[
-                            styles.subjectChipText,
-                            { color: newRecord.subject === subject ? "white" : theme.text },
-                          ]}
-                        >
-                          {subject}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+                        <View style={styles.recordHeader}>
+                          <View style={styles.subjectContainer}>
+                            <Text style={[styles.subjectText, { color: theme.text }]}>{record.subject}</Text>
+                            <View
+                              style={[styles.typeTag, { backgroundColor: isDarkMode ? theme.background : "#f3f4f6" }]}
+                            >
+                              <Text style={[styles.typeText, { color: theme.secondaryText }]}>
+                                {record.type.toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
+                            <Ionicons
+                              name={statusColors.icon}
+                              size={14}
+                              color={statusColors.text}
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={[styles.statusText, { color: statusColors.text }]}>
+                              {record.status === "cancelled" ? "CANCELLED" : record.status.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
 
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Type</Text>
-                <View style={styles.typeToggle}>
-                  <TouchableOpacity
-                    style={[
-                      styles.typeButton,
-                      {
-                        backgroundColor: newRecord.type === "theory" ? theme.primary : "transparent",
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setNewRecord({ ...newRecord, type: "theory" })}
-                  >
-                    <Text
-                      style={[styles.typeButtonText, { color: newRecord.type === "theory" ? "white" : theme.text }]}
-                    >
-                      Theory
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.typeButton,
-                      {
-                        backgroundColor: newRecord.type === "lab" ? theme.primary : "transparent",
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setNewRecord({ ...newRecord, type: "lab" })}
-                  >
-                    <Text style={[styles.typeButtonText, { color: newRecord.type === "lab" ? "white" : theme.text }]}>
-                      Lab
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                        {record.notes && (
+                          <Text style={[styles.notesText, { color: theme.secondaryText }]}>
+                            {record.notes.replace("[MANUAL]", "")}
+                          </Text>
+                        )}
 
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Status</Text>
-                <View style={styles.statusToggle}>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusToggleButton,
-                      {
-                        backgroundColor: newRecord.status === "present" ? theme.present : "transparent",
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setNewRecord({ ...newRecord, status: "present" })}
-                  >
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={18}
-                      color={newRecord.status === "present" ? theme.presentText : theme.secondaryText}
-                    />
-                    <Text
-                      style={[
-                        styles.statusToggleText,
-                        { color: newRecord.status === "present" ? theme.presentText : theme.text },
-                      ]}
-                    >
-                      Present
+                        {record.isManual && (
+                          <View style={[styles.recordActions, { borderTopColor: theme.border }]}>
+                            <TouchableOpacity
+                              style={[styles.actionButton, { backgroundColor: theme.error + "15" }]}
+                              onPress={() => deleteRecord(record.id)}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={theme.error} />
+                              <Text style={[styles.actionText, { color: theme.error }]}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )
+                  })
+                ) : (
+                  <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+                    <View style={[styles.emptyStateIcon, { backgroundColor: theme.primary + "15" }]}>
+                      <Ionicons name="calendar-outline" size={40} color={theme.primary} />
+                    </View>
+                    <Text style={[styles.emptyStateTitle, { color: theme.text }]}>No Records Found</Text>
+                    <Text style={[styles.emptyStateText, { color: theme.secondaryText }]}>
+                      {!isDateInSemester
+                        ? "Selected date is outside the current semester"
+                        : searchQuery
+                          ? "No records match your search criteria"
+                          : "Tap the + button to add a manual attendance record"}
                     </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusToggleButton,
-                      {
-                        backgroundColor: newRecord.status === "absent" ? theme.absent : "transparent",
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setNewRecord({ ...newRecord, status: "absent" })}
-                  >
-                    <Ionicons
-                      name="close-circle"
-                      size={18}
-                      color={newRecord.status === "absent" ? theme.absentText : theme.secondaryText}
-                    />
-                    <Text
-                      style={[
-                        styles.statusToggleText,
-                        { color: newRecord.status === "absent" ? theme.absentText : theme.text },
-                      ]}
-                    >
-                      Absent
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusToggleButton,
-                      {
-                        backgroundColor: newRecord.status === "cancelled" ? theme.warning + "20" : "transparent",
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setNewRecord({ ...newRecord, status: "cancelled" })}
-                  >
-                    <Ionicons
-                      name="alert-circle"
-                      size={18}
-                      color={newRecord.status === "cancelled" ? theme.warning : theme.secondaryText}
-                    />
-                    <Text
-                      style={[
-                        styles.statusToggleText,
-                        { color: newRecord.status === "cancelled" ? theme.warning : theme.text },
-                      ]}
-                    >
-                      Cancelled
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.inputLabel, { color: theme.text }]}>Notes (Optional)</Text>
-                <TextInput
-                  style={[
-                    styles.notesInput,
-                    {
-                      backgroundColor: isDarkMode ? theme.background : "#f9fafb",
-                      color: theme.text,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                  placeholder="Add notes about this record..."
-                  placeholderTextColor={theme.secondaryText}
-                  value={newRecord.notes}
-                  onChangeText={(text) => setNewRecord({ ...newRecord, notes: text })}
-                  multiline
-                  numberOfLines={3}
-                />
+                  </View>
+                )}
               </ScrollView>
+            )}
 
-              <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
-                <TouchableOpacity
-                  style={[styles.cancelButton, { borderColor: theme.border }]}
-                  onPress={() => setModalVisible(false)}
-                >
-                  <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    {
-                      backgroundColor: newRecord.subject ? theme.primary : theme.primary + "80",
-                      opacity: newRecord.subject ? 1 : 0.8,
-                    },
-                  ]}
-                  onPress={addManualRecord}
-                  disabled={isSaving || !newRecord.subject}
-                >
-                  {isSaving ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <>
-                      <Ionicons name="add-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
-                      <Text style={styles.saveButtonText}>Add Record</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+            {/* Add button */}
+            <Animated.View
+              style={{
+                transform: [{ scale: addButtonScale }],
+                position: "absolute",
+                bottom: 24,
+                right: 24,
+              }}
+            >
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: theme.primary }]}
+                onPress={animateAddButton}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={24} color="white" />
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* Date Picker */}
+          {renderDatePicker()}
+
+          {/* Add Record Modal */}
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Add Manual Record</Text>
+                  <TouchableOpacity
+                    onPress={() => setModalVisible(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>Subject</Text>
+                  <View
+                    style={[
+                      styles.pickerContainer,
+                      { backgroundColor: isDarkMode ? theme.background : "#f9fafb", borderColor: theme.border },
+                    ]}
+                  >
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {semesterSubjects.map((subject) => (
+                        <TouchableOpacity
+                          key={subject}
+                          style={[
+                            styles.subjectChip,
+                            {
+                              backgroundColor: newRecord.subject === subject ? theme.primary : "transparent",
+                              borderColor: theme.border,
+                            },
+                          ]}
+                          onPress={() => setNewRecord({ ...newRecord, subject })}
+                        >
+                          <Text
+                            style={[
+                              styles.subjectChipText,
+                              { color: newRecord.subject === subject ? "white" : theme.text },
+                            ]}
+                          >
+                            {subject}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>Type</Text>
+                  <View style={styles.typeToggle}>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeButton,
+                        {
+                          backgroundColor: newRecord.type === "theory" ? theme.primary : "transparent",
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => setNewRecord({ ...newRecord, type: "theory" })}
+                    >
+                      <Text
+                        style={[styles.typeButtonText, { color: newRecord.type === "theory" ? "white" : theme.text }]}
+                      >
+                        Theory
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.typeButton,
+                        {
+                          backgroundColor: newRecord.type === "lab" ? theme.primary : "transparent",
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => setNewRecord({ ...newRecord, type: "lab" })}
+                    >
+                      <Text style={[styles.typeButtonText, { color: newRecord.type === "lab" ? "white" : theme.text }]}>
+                        Lab
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>Status</Text>
+                  <View style={styles.statusToggle}>
+                    <TouchableOpacity
+                      style={[
+                        styles.statusToggleButton,
+                        {
+                          backgroundColor: newRecord.status === "present" ? theme.present : "transparent",
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => setNewRecord({ ...newRecord, status: "present" })}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color={newRecord.status === "present" ? theme.presentText : theme.secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.statusToggleText,
+                          { color: newRecord.status === "present" ? theme.presentText : theme.text },
+                        ]}
+                      >
+                        Present
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.statusToggleButton,
+                        {
+                          backgroundColor: newRecord.status === "absent" ? theme.absent : "transparent",
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => setNewRecord({ ...newRecord, status: "absent" })}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={18}
+                        color={newRecord.status === "absent" ? theme.absentText : theme.secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.statusToggleText,
+                          { color: newRecord.status === "absent" ? theme.absentText : theme.text },
+                        ]}
+                      >
+                        Absent
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.statusToggleButton,
+                        {
+                          backgroundColor: newRecord.status === "cancelled" ? theme.warning + "20" : "transparent",
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      onPress={() => setNewRecord({ ...newRecord, status: "cancelled" })}
+                    >
+                      <Ionicons
+                        name="alert-circle"
+                        size={18}
+                        color={newRecord.status === "cancelled" ? theme.warning : theme.secondaryText}
+                      />
+                      <Text
+                        style={[
+                          styles.statusToggleText,
+                          { color: newRecord.status === "cancelled" ? theme.warning : theme.text },
+                        ]}
+                      >
+                        Cancelled
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: theme.text }]}>Notes (Optional)</Text>
+                  <TextInput
+                    style={[
+                      styles.notesInput,
+                      {
+                        backgroundColor: isDarkMode ? theme.background : "#f9fafb",
+                        color: theme.text,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    placeholder="Add notes about this record..."
+                    placeholderTextColor={theme.secondaryText}
+                    value={newRecord.notes}
+                    onChangeText={(text) => setNewRecord({ ...newRecord, notes: text })}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </ScrollView>
+
+                <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: theme.border }]}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.saveButton,
+                      {
+                        backgroundColor: newRecord.subject ? theme.primary : theme.primary + "80",
+                        opacity: newRecord.subject ? 1 : 0.8,
+                      },
+                    ]}
+                    onPress={addManualRecord}
+                    disabled={isSaving || !newRecord.subject}
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <>
+                        <Ionicons name="add-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                        <Text style={styles.saveButtonText}>Add Record</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      </View>
-    </SafeAreaView>
+          </Modal>
+        </SafeAreaView>
+      </LinearGradient>
+    </View>
   )
 }
 
-// Update the styles to use consistent spacing
 const styles = StyleSheet.create({
-  safeArea: {
+  fullScreenContainer: {
     flex: 1,
   },
   container: {
     flex: 1,
-    padding: spacing.screenPadding,
   },
-  toast: {
+  safeArea: {
+    flex: 1,
+  },
+  statusBarSpacer: {
+    height: StatusBar.currentHeight || 44, // Android status bar height or iOS safe area
+    width: "100%",
+  },
+  circle: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 100 : 80,
-    left: spacing.screenPadding,
-    right: spacing.screenPadding,
+    borderRadius: 9999,
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -100,
+    right: -100,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    top: 200,
+    left: -75,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    bottom: 150,
+    right: -50,
+  },
+  header: {
+    padding: spacing.md,
+    paddingBottom: spacing.lg,
+  },
+  logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.sm,
-    borderRadius: spacing.borderRadius.large,
-    zIndex: 1000,
+  },
+  logoCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacing.md,
     ...createShadow(2),
   },
-  toastText: {
-    marginLeft: spacing.sm,
-    fontWeight: "500",
+  headerText: {
+    flex: 1,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: spacing.xs / 2,
+  },
+  appSubtitle: {
     fontSize: 14,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: spacing.screenPadding,
   },
   dateDisplay: {
     flexDirection: "row",
@@ -917,6 +979,20 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.2,
+    marginBottom: spacing.xs,
+  },
+  warningBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.large,
+    alignSelf: "flex-start",
+  },
+  warningText: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginLeft: spacing.xs,
   },
   datePickerButton: {
     width: 40,
@@ -928,10 +1004,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.sm,
+    // padding: spacing.sm,
     borderRadius: spacing.borderRadius.large,
     marginBottom: spacing.sm,
-    ...createShadow(1),
+    // ...createShadow(1),
   },
   searchInputContainer: {
     flex: 1,
@@ -939,7 +1015,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: spacing.borderRadius.large,
     paddingHorizontal: spacing.sm,
-    height: 38,
+    height: 50,
   },
   searchIcon: {
     marginRight: spacing.sm,
@@ -955,7 +1031,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: spacing.sm,
+    marginRight: spacing.sm,
   },
   recordsCountContainer: {
     marginBottom: spacing.sm,
@@ -970,8 +1046,8 @@ const styles = StyleSheet.create({
   },
   recordCard: {
     borderRadius: spacing.borderRadius.large,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
     ...createShadow(1),
     borderLeftWidth: 3,
   },
@@ -993,7 +1069,7 @@ const styles = StyleSheet.create({
   },
   typeTag: {
     paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs / 2,
+    paddingVertical: spacing.xs,
     borderRadius: spacing.borderRadius.large / 2,
   },
   typeText: {
@@ -1062,6 +1138,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: spacing.md,
+    ...createShadow(1),
   },
   emptyStateIcon: {
     width: 70,
@@ -1112,7 +1189,7 @@ const styles = StyleSheet.create({
   },
   modalBody: {
     padding: spacing.md,
-    maxHeight: 400,
+    maxHeight: 500,
   },
   inputLabel: {
     fontSize: 15,
@@ -1251,9 +1328,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   currentDateContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
     ...createShadow(1),
@@ -1275,7 +1352,7 @@ const styles = StyleSheet.create({
   },
   confirmDateButton: {
     marginTop: spacing.xl,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: spacing.borderRadius.large,
     alignItems: "center",
