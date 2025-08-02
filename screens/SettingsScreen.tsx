@@ -30,7 +30,7 @@ import { colors } from "../utils/theme"
 import { doc, deleteDoc, collection, getDocs, query, where, setDoc } from "firebase/firestore"
 import { db } from "../firebase/config"
 import { updateProfile, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth"
-import { Divisions, getBatches, AllSubjects } from "../timetable"
+import { getBatches, getSemesterTimetable, AllSubjects } from "../timetable" // Import getSemesterTimetable
 import * as Print from "expo-print"
 import { useToast } from "../context/ToastContext"
 import { spacing, createShadow } from "../utils/spacing"
@@ -56,13 +56,19 @@ export default function SettingsScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [displayName, setDisplayName] = useState("")
-  const [showDivisionModal, setShowDivisionModal] = useState(false)
-  const [showBatchModal, setShowBatchModal] = useState(false)
-  const [showSemesterModal, setShowSemesterModal] = useState(false)
+
+  // Academic Info States
+  const [selectedSemester, setSelectedSemester] = useState("")
   const [selectedDivision, setSelectedDivision] = useState("")
   const [selectedBatch, setSelectedBatch] = useState("")
-  const [selectedSemester, setSelectedSemester] = useState("")
+  const [availableDivisions, setAvailableDivisions] = useState<string[]>([])
   const [availableBatches, setAvailableBatches] = useState<string[]>([])
+
+  // Modals for academic info
+  const [showSemesterModal, setShowSemesterModal] = useState(false)
+  const [showDivisionModal, setShowDivisionModal] = useState(false)
+  const [showBatchModal, setShowBatchModal] = useState(false)
+
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false)
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -92,9 +98,9 @@ export default function SettingsScreen() {
       setProfileImage(user.photoURL)
 
       if (userProfile) {
+        setSelectedSemester(userProfile.semester || "")
         setSelectedDivision(userProfile.division || "")
         setSelectedBatch(userProfile.batch || "")
-        setSelectedSemester(userProfile.semester || "")
       }
 
       // Load semester settings
@@ -115,17 +121,40 @@ export default function SettingsScreen() {
     loadUserData()
   }, [user, userProfile])
 
-  // Update available batches when division changes
+  // Update available divisions when semester changes
   useEffect(() => {
-    if (selectedDivision) {
-      const batches = getBatches(selectedDivision)
+    if (selectedSemester) {
+      const semesterData = getSemesterTimetable(selectedSemester)
+      const divisionsForSemester = Object.keys(semesterData || {})
+      setAvailableDivisions(divisionsForSemester)
+
+      // If current division is not in new list, reset it
+      if (selectedDivision && !divisionsForSemester.includes(selectedDivision)) {
+        setSelectedDivision("")
+        setSelectedBatch("")
+      }
+    } else {
+      setAvailableDivisions([])
+      setSelectedDivision("")
+      setSelectedBatch("")
+    }
+  }, [selectedSemester])
+
+  // Update available batches when division or semester changes
+  useEffect(() => {
+    if (selectedDivision && selectedSemester) {
+      const batches = getBatches(selectedDivision, selectedSemester)
       setAvailableBatches(batches)
 
-      if (userProfile?.division !== selectedDivision) {
-        setSelectedBatch(batches.length > 0 ? batches[0] : "")
+      // If current batch is not in new list, reset it
+      if (selectedBatch && !batches.includes(selectedBatch)) {
+        setSelectedBatch("")
       }
+    } else {
+      setAvailableBatches([])
+      setSelectedBatch("")
     }
-  }, [selectedDivision, userProfile?.division])
+  }, [selectedDivision, selectedSemester])
 
   const onRefresh = () => {
     setRefreshing(true)
@@ -190,8 +219,8 @@ export default function SettingsScreen() {
     }
   }
 
-  // Update division, batch, and semester
-  const updateAcademicInfo = async (info: { division?: string; batch?: string; semester?: string }) => {
+  // Update academic info
+  const updateAcademicInfo = async (info: { semester?: string; division?: string; batch?: string }) => {
     if (!user) return
     setIsLoading(true)
     try {
@@ -736,13 +765,11 @@ export default function SettingsScreen() {
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {renderSettingRow(
                   "school-outline",
-                  "Division & Batch",
-                  `Div ${selectedDivision || "N/A"} - Batch ${selectedBatch || "N/A"}`,
-                  () => setShowDivisionModal(true),
-                )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {renderSettingRow("library-outline", "Semester", `Semester ${selectedSemester || "N/A"}`, () =>
-                  setShowSemesterModal(true),
+                  "Academic Info",
+                  `Sem ${selectedSemester || "N/A"} | Div ${selectedDivision || "N/A"} - Batch ${
+                    selectedBatch || "N/A"
+                  }`,
+                  () => setShowSemesterModal(true), // Open semester modal first
                 )}
               </>,
             )}
@@ -819,49 +846,7 @@ export default function SettingsScreen() {
           </ScrollView>
         </SafeAreaView>
 
-        {/* Modals */}
-        {renderModal(
-          showDivisionModal,
-          () => setShowDivisionModal(false),
-          "Select Division",
-          Divisions,
-          ({ item }) => (
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setSelectedDivision(item)
-                setShowDivisionModal(false)
-                setTimeout(() => setShowBatchModal(true), 300)
-              }}
-            >
-              <Text style={[styles.modalItemText, { color: theme.text }]}>Division {item}</Text>
-              {selectedDivision === item && <Ionicons name="checkmark" size={22} color={theme.primary} />}
-            </TouchableOpacity>
-          ),
-          (item) => item,
-        )}
-
-        {renderModal(
-          showBatchModal,
-          () => setShowBatchModal(false),
-          "Select Batch",
-          availableBatches,
-          ({ item }) => (
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setSelectedBatch(item)
-                setShowBatchModal(false)
-                updateAcademicInfo({ division: selectedDivision, batch: item })
-              }}
-            >
-              <Text style={[styles.modalItemText, { color: theme.text }]}>Batch {item}</Text>
-              {selectedBatch === item && <Ionicons name="checkmark" size={22} color={theme.primary} />}
-            </TouchableOpacity>
-          ),
-          (item) => item,
-        )}
-
+        {/* Semester Selection Modal */}
         {renderModal(
           showSemesterModal,
           () => setShowSemesterModal(false),
@@ -873,11 +858,56 @@ export default function SettingsScreen() {
               onPress={() => {
                 setSelectedSemester(item)
                 setShowSemesterModal(false)
-                updateAcademicInfo({ semester: item })
+                setTimeout(() => setShowDivisionModal(true), 300) // Open division modal next
               }}
             >
               <Text style={[styles.modalItemText, { color: theme.text }]}>Semester {item}</Text>
               {selectedSemester === item && <Ionicons name="checkmark" size={22} color={theme.primary} />}
+            </TouchableOpacity>
+          ),
+          (item) => item,
+        )}
+
+        {/* Division Selection Modal */}
+        {renderModal(
+          showDivisionModal,
+          () => setShowDivisionModal(false),
+          "Select Division",
+          availableDivisions, // Use dynamically available divisions
+          ({ item }) => (
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setSelectedDivision(item)
+                setShowDivisionModal(false)
+                setTimeout(() => setShowBatchModal(true), 300) // Open batch modal next
+              }}
+            >
+              <Text style={[styles.modalItemText, { color: theme.text }]}>Division {item}</Text>
+              {selectedDivision === item && <Ionicons name="checkmark" size={22} color={theme.primary} />}
+            </TouchableOpacity>
+          ),
+          (item) => item,
+        )}
+
+        {/* Batch Selection Modal */}
+        {renderModal(
+          showBatchModal,
+          () => setShowBatchModal(false),
+          "Select Batch",
+          availableBatches, // Use dynamically available batches
+          ({ item }) => (
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setSelectedBatch(item)
+                setShowBatchModal(false)
+                // Update all academic info at once
+                updateAcademicInfo({ semester: selectedSemester, division: selectedDivision, batch: item })
+              }}
+            >
+              <Text style={[styles.modalItemText, { color: theme.text }]}>Batch {item}</Text>
+              {selectedBatch === item && <Ionicons name="checkmark" size={22} color={theme.primary} />}
             </TouchableOpacity>
           ),
           (item) => item,

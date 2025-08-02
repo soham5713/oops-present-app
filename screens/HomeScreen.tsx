@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   View,
   Text,
@@ -125,6 +125,22 @@ export default function HomeScreen() {
     loadSemesterSettings()
   }, [user?.uid])
 
+  const convertTimeToMinutes = useCallback((timeString) => {
+    if (!timeString || timeString === "Time TBA") return 0;
+
+    // Extract first time from formats like "9:00-10:00" or "9:00"
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return 0;
+
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+
+    // If hour is less than 9, assume it's PM (like 1:00 = 13:00)
+    if (hours < 9) hours += 12;
+
+    return hours * 60 + minutes;
+  }, []);
+
   // Get subjects for the user's division, batch, and semester
   const getUserSubjects = () => {
     if (!userProfile?.division || !userProfile?.batch || !userProfile?.semester) {
@@ -136,7 +152,7 @@ export default function HomeScreen() {
       return []
     }
 
-    const subjects = new Set<string>()
+    const subjects = new Map() // Use Map to store subject with time info
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
     try {
@@ -156,9 +172,11 @@ export default function HomeScreen() {
       // Get subjects from shared schedule
       days.forEach((day) => {
         const sharedSubjects = divisionData.shared?.[day] || []
-        sharedSubjects.forEach((subject: any) => {
-          if (subject.subject) {
-            subjects.add(subject.subject)
+        sharedSubjects.forEach((subject) => {
+          if (subject.subject && subject.time) {
+            if (!subjects.has(subject.subject)) {
+              subjects.set(subject.subject, convertTimeToMinutes(subject.time))
+            }
           }
         })
       })
@@ -168,17 +186,23 @@ export default function HomeScreen() {
       if (batchData) {
         days.forEach((day) => {
           const batchSubjects = batchData[day] || []
-          batchSubjects.forEach((subject: any) => {
-            if (subject.subject) {
-              subjects.add(subject.subject)
+          batchSubjects.forEach((subject) => {
+            if (subject.subject && subject.time) {
+              if (!subjects.has(subject.subject)) {
+                subjects.set(subject.subject, convertTimeToMinutes(subject.time))
+              }
             }
           })
         })
       }
 
-      const subjectArray = Array.from(subjects)
-      console.log("[SUBJECTS] Found subjects for semester", userProfile.semester, ":", subjectArray)
-      return subjectArray
+      // Sort subjects by time and return just the subject names
+      const sortedSubjects = Array.from(subjects.entries())
+        .sort(([, timeA], [, timeB]) => timeA - timeB)
+        .map(([subject]) => subject)
+
+      console.log("[SUBJECTS] Found sorted subjects for semester", userProfile.semester, ":", sortedSubjects)
+      return sortedSubjects
     } catch (error) {
       console.error("[SUBJECTS] Error getting subjects:", error)
       return []
@@ -370,10 +394,25 @@ export default function HomeScreen() {
         }
       }
 
-      // Calculate percentages
+      // Calculate percentages with bounds checking
       Object.values(stats).forEach((stat) => {
+        // Ensure values are non-negative
+        stat.theoryPresent = Math.max(0, stat.theoryPresent)
+        stat.theoryTotal = Math.max(0, stat.theoryTotal)
+        stat.labPresent = Math.max(0, stat.labPresent)
+        stat.labTotal = Math.max(0, stat.labTotal)
+
+        // Ensure present doesn't exceed total
+        stat.theoryPresent = Math.min(stat.theoryPresent, stat.theoryTotal)
+        stat.labPresent = Math.min(stat.labPresent, stat.labTotal)
+
+        // Calculate percentages
         stat.theoryPercentage = stat.theoryTotal > 0 ? Math.round((stat.theoryPresent / stat.theoryTotal) * 100) : 0
         stat.labPercentage = stat.labTotal > 0 ? Math.round((stat.labPresent / stat.labTotal) * 100) : 0
+
+        // Ensure percentages are within 0-100 range
+        stat.theoryPercentage = Math.min(100, Math.max(0, stat.theoryPercentage))
+        stat.labPercentage = Math.min(100, Math.max(0, stat.labPercentage))
       })
 
       // Filter out subjects with no attendance records and sort
@@ -396,16 +435,17 @@ export default function HomeScreen() {
       setOverallStats(filteredStats)
       setCachedOverallStats(filteredStats)
 
-      // Calculate overall attendance percentages
+      // Calculate overall attendance percentages with bounds checking
       const totalTheoryPresent = filteredStats.reduce((sum, stat) => sum + stat.theoryPresent, 0)
       const totalTheoryClasses = filteredStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)
-      const overallTheoryPercentage =
-        totalTheoryClasses > 0 ? Math.round((totalTheoryPresent / totalTheoryClasses) * 100) : 0
+      const overallTheoryPercentage = totalTheoryClasses > 0 ?
+        Math.min(100, Math.max(0, Math.round((totalTheoryPresent / totalTheoryClasses) * 100))) : 0
       setOverallTheoryAttendance(overallTheoryPercentage)
 
       const totalLabPresent = filteredStats.reduce((sum, stat) => sum + stat.labPresent, 0)
       const totalLabClasses = filteredStats.reduce((sum, stat) => sum + stat.labTotal, 0)
-      const overallLabPercentage = totalLabClasses > 0 ? Math.round((totalLabPresent / totalLabClasses) * 100) : 0
+      const overallLabPercentage = totalLabClasses > 0 ?
+        Math.min(100, Math.max(0, Math.round((totalLabPresent / totalLabClasses) * 100))) : 0
       setOverallLabAttendance(overallLabPercentage)
 
       console.log(`[OVERALL] Overall percentages - Theory: ${overallTheoryPercentage}%, Lab: ${overallLabPercentage}%`)
@@ -528,10 +568,25 @@ export default function HomeScreen() {
         })
       })
 
-      // Calculate percentages
+      // Calculate percentages with bounds checking
       Object.values(stats).forEach((stat) => {
+        // Ensure values are non-negative
+        stat.theoryPresent = Math.max(0, stat.theoryPresent)
+        stat.theoryTotal = Math.max(0, stat.theoryTotal)
+        stat.labPresent = Math.max(0, stat.labPresent)
+        stat.labTotal = Math.max(0, stat.labTotal)
+
+        // Ensure present doesn't exceed total
+        stat.theoryPresent = Math.min(stat.theoryPresent, stat.theoryTotal)
+        stat.labPresent = Math.min(stat.labPresent, stat.labTotal)
+
+        // Calculate percentages
         stat.theoryPercentage = stat.theoryTotal > 0 ? Math.round((stat.theoryPresent / stat.theoryTotal) * 100) : 0
         stat.labPercentage = stat.labTotal > 0 ? Math.round((stat.labPresent / stat.labTotal) * 100) : 0
+
+        // Ensure percentages are within 0-100 range
+        stat.theoryPercentage = Math.min(100, Math.max(0, stat.theoryPercentage))
+        stat.labPercentage = Math.min(100, Math.max(0, stat.labPercentage))
       })
 
       // Filter out subjects with no attendance records and sort
@@ -1024,9 +1079,8 @@ export default function HomeScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Dashboard</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
-                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-                }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+              }`
               : "Your Attendance Overview"}
           </Text>
         </View>
@@ -1409,13 +1463,13 @@ export default function HomeScreen() {
                           ? overallTheoryAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                                (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
-                                  Math.max(
-                                    1,
-                                    monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
-                                  )) *
-                                  100,
-                              )
+                              (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
+                                Math.max(
+                                  1,
+                                  monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
+                                )) *
+                              100,
+                            )
                             : 0}
                         %
                       </Text>
@@ -1446,13 +1500,13 @@ export default function HomeScreen() {
                           ? overallLabAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                                (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
-                                  Math.max(
-                                    1,
-                                    monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
-                                  )) *
-                                  100,
-                              )
+                              (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
+                                Math.max(
+                                  1,
+                                  monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
+                                )) *
+                              100,
+                            )
                             : 0}
                         %
                       </Text>

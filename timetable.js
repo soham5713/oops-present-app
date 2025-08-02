@@ -6,7 +6,6 @@ export const Timetable = {
           { subject: "PSOOP", type: "lab" },
           { subject: "DECA", type: "theory" },
           { subject: "UHV", type: "theory" },
-          { subject: "BEE", type: "theory" },
         ],
         Tuesday: [
           { subject: "PSOOP", type: "lab" },
@@ -538,13 +537,15 @@ export const Timetable = {
         ],
       },
       batches: {
-        AA: {
+        A1: {
+          // Changed from AA to A1
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "04:00 - 06:00" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "10:45 - 12:45" }],
         },
-        AB: {
+        A2: {
+          // Changed from AB to A2
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "04:00 - 06:00" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-3", time: "01:45 - 03:45" }],
@@ -556,7 +557,8 @@ export const Timetable = {
           Wednesday: [{ subject: "PCS", type: "lab", room: "609", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "10:45 - 12:45" }],
         },
-        AD: {
+        A4: {
+          // Changed from AD to A4
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "04:00 - 06:00" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "702-B", time: "01:45 - 03:45" }],
@@ -564,7 +566,6 @@ export const Timetable = {
         },
       },
     },
-    // Add other divisions for semester 2 as needed
     B: {
       shared: {
         Monday: [
@@ -596,21 +597,24 @@ export const Timetable = {
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        BB: {
+        B2: {
+          // Changed from BB to B2
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        BC: {
+        B3: {
+          // Changed from BC to B3
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        BD: {
+        B4: {
+          // Changed from BD to B4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
@@ -619,7 +623,6 @@ export const Timetable = {
         },
       },
     },
-    // Continue with other divisions...
     C: {
       shared: {
         Monday: [
@@ -641,28 +644,32 @@ export const Timetable = {
         Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
       },
       batches: {
-        CA: {
+        C1: {
+          // Changed from CA to C1
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        CB: {
+        C2: {
+          // Changed from CB to C2
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        CC: {
+        C3: {
+          // Changed from CC to C3
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        CD: {
+        C4: {
+          // Changed from CD to C4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
@@ -695,28 +702,32 @@ export const Timetable = {
         ],
       },
       batches: {
-        DA: {
+        D1: {
+          // Changed from DA to D1
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        DB: {
+        D2: {
+          // Changed from DB to D2
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        DC: {
+        D3: {
+          // Changed from DC to D3
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        DD: {
+        D4: {
+          // Changed from DD to D4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
@@ -746,28 +757,32 @@ export const Timetable = {
         Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
       },
       batches: {
-        EA: {
+        E1: {
+          // Changed from EA to E1
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        EB: {
+        E2: {
+          // Changed from EB to E2
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        EC: {
+        E3: {
+          // Changed from EC to E3
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        ED: {
+        E4: {
+          // Changed from ED to E4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
@@ -800,28 +815,32 @@ export const Timetable = {
         ],
       },
       batches: {
-        FA: {
+        F1: {
+          // Changed from FA to F1
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        FB: {
+        F2: {
+          // Changed from FB to F2
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        FC: {
+        F3: {
+          // Changed from FC to F3
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        FD: {
+        F4: {
+          // Changed from FD to F4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
@@ -851,28 +870,32 @@ export const Timetable = {
         Friday: [{ subject: "LLC", type: "theory", room: "508", time: "09:30 - 10:30" }],
       },
       batches: {
-        GA: {
+        G1: {
+          // Changed from GA to G1
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        GB: {
+        G2: {
+          // Changed from GB to G2
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        GC: {
+        G3: {
+          // Changed from GC to G3
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        GD: {
+        G4: {
+          // Changed from GD to G4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
@@ -905,28 +928,32 @@ export const Timetable = {
         ],
       },
       batches: {
-        HA: {
+        H1: {
+          // Changed from HA to H1
           Monday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        HB: {
+        H2: {
+          // Changed from HB to H2
           Monday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        HC: {
+        H3: {
+          // Changed from HC to H3
           Monday: [{ subject: "CCN", type: "lab", room: "603-2", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Thursday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
           Friday: [],
         },
-        HD: {
+        H4: {
+          // Changed from HD to H4
           Monday: [{ subject: "PCS", type: "lab", room: "601", time: "01:45 - 03:45" }],
           Tuesday: [{ subject: "OS", type: "lab", room: "608", time: "01:45 - 03:45" }],
           Wednesday: [{ subject: "DAA", type: "lab", room: "606-4", time: "01:45 - 03:45" }],
@@ -936,34 +963,402 @@ export const Timetable = {
       },
     },
   },
-  // Add more semesters as needed
   semester3: {
-    // Add semester 3 timetables
+    CSE_A: {
+      shared: {
+        Monday: [
+          { subject: "PCS", type: "theory", room: "408", time: "10:00 - 11:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "11:00 - 12:00" },
+          { subject: "DBMS", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "theory", room: "", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+        ],
+        Tuesday: [
+          { subject: "DS", type: "theory", room: "008", time: "11:00 - 12:00" },
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "theory", room: "", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "03:00 - 04:00" },
+        ],
+        Wednesday: [
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "DBMS", type: "theory", room: "408", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "theory", room: "", time: "03:00 - 04:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+          { subject: "LLC", type: "theory", room: "", time: "05:00 - 06:00" },
+        ],
+        Thursday: [
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "lab", room: "", time: "02:00 - 04:00" },
+          { subject: "HSM-1", type: "theory", room: "", time: "04:00 - 05:00" },
+        ],
+        Friday: [
+          { subject: "DS", type: "theory", room: "408", time: "09:00 - 10:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "DBMS", type: "theory", room: "408", time: "02:00 - 03:00" },
+          { subject: "HSM-1", type: "theory", room: "", time: "04:00 - 05:00" },
+        ],
+      },
+      batches: {
+        A1: {
+          // Changed from CSE_A1 to A1
+          Tuesday: [{ subject: "PCS", type: "lab", room: "405", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "DBMS", type: "lab", room: "410A", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "COA", type: "lab", room: "406B", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "DS", type: "lab", room: "408", time: "10:00 - 12:00" }],
+        },
+        A2: {
+          // Changed from CSE_A2 to A2
+          Monday: [{ subject: "DS", type: "lab", room: "408", time: "03:00 - 05:00" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "405", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "DBMS", type: "lab", room: "410B", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "COA", type: "lab", room: "406B", time: "10:00 - 12:00" }],
+        },
+        A3: {
+          // Changed from CSE_A3 to A3
+          Tuesday: [{ subject: "COA", type: "lab", room: "404", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "DS", type: "lab", room: "404", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "407", time: "09:00 - 11:00" }],
+          Friday: [{ subject: "DBMS", type: "lab", room: "410B", time: "10:00 - 12:00" }],
+        },
+        A4: {
+          // Changed from CSE_A4 to A4
+          Tuesday: [{ subject: "DBMS", type: "lab", room: "410A", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "COA", type: "lab", room: "406A", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "DS", type: "lab", room: "404", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "PCS", type: "lab", room: "405", time: "10:00 - 12:00" }],
+        },
+      },
+    },
+    CSE_B: {
+      shared: {
+        Monday: [
+          { subject: "PCS", type: "theory", room: "408", time: "10:00 - 11:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "11:00 - 12:00" },
+          { subject: "DBMS", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "theory", room: "", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+        ],
+        Tuesday: [
+          { subject: "DS", type: "theory", room: "008", time: "11:00 - 12:00" },
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "theory", room: "", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "03:00 - 04:00" },
+        ],
+        Wednesday: [
+          { subject: "DBMS", type: "theory", room: "408", time: "08:00 - 09:00" },
+          { subject: "DS", type: "theory", room: "408", time: "09:00 - 10:00" },
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "DBMS", type: "theory", room: "408", time: "02:00 - 03:00" },
+          { subject: "BSES", type: "theory", room: "", time: "03:00 - 04:00" },
+          { subject: "BSES", type: "lab", room: "", time: "03:00 - 05:00" },
+          { subject: "LLC", type: "theory", room: "", time: "05:00 - 06:00" },
+        ],
+        Thursday: [
+          { subject: "COA", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "BSES", type: "lab", room: "", time: "02:00 - 04:00" },
+          { subject: "HSM-1", type: "theory", room: "", time: "04:00 - 05:00" },
+        ],
+        Friday: [
+          { subject: "DS", type: "theory", room: "408", time: "09:00 - 10:00" },
+          { subject: "DSGT", type: "theory", room: "408", time: "12:00 - 01:00" },
+          { subject: "HSM-1", type: "theory", room: "", time: "04:00 - 05:00" },
+        ],
+      },
+      batches: {
+        B1: {
+          // Changed from CSE_B1 to B1
+          Tuesday: [{ subject: "DS", type: "lab", room: "406A", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "PCS", type: "lab", room: "407", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "DBMS", type: "lab", room: "410A", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "COA", type: "lab", room: "406A", time: "10:00 - 12:00" }],
+        },
+        B2: {
+          // Changed from CSE_B2 to B2
+          Tuesday: [{ subject: "COA", type: "lab", room: "406B", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "DS", type: "lab", room: "404", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "PCS", type: "lab", room: "407", time: "09:00 - 11:00" }],
+          Friday: [{ subject: "DBMS", type: "lab", room: "410A", time: "10:00 - 12:00" }],
+        },
+        B3: {
+          // Changed from CSE_B3 to B3
+          Tuesday: [{ subject: "DBMS", type: "lab", room: "410B", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "COA", type: "lab", room: "406B", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "PCS", type: "lab", room: "407", time: "10:00 - 12:00" }],
+        },
+        B4: {
+          // Changed from CSE_B4 to B4
+          Tuesday: [{ subject: "PCS", type: "lab", room: "404", time: "09:00 - 11:00" }],
+          Wednesday: [{ subject: "DBMS", type: "lab", room: "410B", time: "10:00 - 12:00" }],
+          Thursday: [{ subject: "COA", type: "lab", room: "406A", time: "10:00 - 12:00" }],
+          Friday: [{ subject: "DS", type: "lab", room: "404", time: "10:00 - 12:00" }],
+        },
+      },
+    },
+    EXTC_A: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        A1: {},
+        A2: {},
+        A3: {},
+        A4: {},
+      },
+    },
+    EXTC_B: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        B1: {},
+        B2: {},
+        B3: {},
+        B4: {},
+      },
+    },
+    CE_A: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        A1: {},
+        A2: {},
+        A3: {},
+        A4: {},
+      },
+    },
+    CE_B: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        B1: {},
+        B2: {},
+        B3: {},
+        B4: {},
+      },
+    },
+    CE_C: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        C1: {},
+        C2: {},
+        C3: {},
+        C4: {},
+      },
+    },
+    CE_D: {
+      // New division for semesters 3-8
+      shared: {},
+      batches: {
+        D1: {},
+        D2: {},
+        D3: {},
+        D4: {},
+      },
+    },
   },
   semester4: {
-    // Add semester 4 timetables
+    // Placeholder for semester 4
+    CSE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CSE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    EXTC_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    EXTC_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_C: {
+      shared: {},
+      batches: { C1: {}, C2: {}, C3: {}, C4: {} },
+    },
+    CE_D: {
+      shared: {},
+      batches: { D1: {}, D2: {}, D3: {}, D4: {} },
+    },
   },
   semester5: {
-    // Add semester 5 timetables
+    // Placeholder for semester 5
+    CSE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CSE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    EXTC_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    EXTC_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_C: {
+      shared: {},
+      batches: { C1: {}, C2: {}, C3: {}, C4: {} },
+    },
+    CE_D: {
+      shared: {},
+      batches: { D1: {}, D2: {}, D3: {}, D4: {} },
+    },
   },
   semester6: {
-    // Add semester 6 timetables
+    // Placeholder for semester 6
+    CSE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CSE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    EXTC_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    EXTC_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_C: {
+      shared: {},
+      batches: { C1: {}, C2: {}, C3: {}, C4: {} },
+    },
+    CE_D: {
+      shared: {},
+      batches: { D1: {}, D2: {}, D3: {}, D4: {} },
+    },
   },
   semester7: {
-    // Add semester 7 timetables
+    // Placeholder for semester 7
+    CSE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CSE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    EXTC_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    EXTC_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_C: {
+      shared: {},
+      batches: { C1: {}, C2: {}, C3: {}, C4: {} },
+    },
+    CE_D: {
+      shared: {},
+      batches: { D1: {}, D2: {}, D3: {}, D4: {} },
+    },
   },
   semester8: {
-    // Add semester 8 timetables
+    // Placeholder for semester 8
+    CSE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CSE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    EXTC_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    EXTC_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_A: {
+      shared: {},
+      batches: { A1: {}, A2: {}, A3: {}, A4: {} },
+    },
+    CE_B: {
+      shared: {},
+      batches: { B1: {}, B2: {}, B3: {}, B4: {} },
+    },
+    CE_C: {
+      shared: {},
+      batches: { C1: {}, C2: {}, C3: {}, C4: {} },
+    },
+    CE_D: {
+      shared: {},
+      batches: { D1: {}, D2: {}, D3: {}, D4: {} },
+    },
   },
 }
 
-export const Divisions = ["A", "B", "C", "D", "E", "F", "G", "H"]
+// Divisions are now dynamically determined by semester
+export const Divisions = [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "CSE_A",
+  "CSE_B",
+  "EXTC_A",
+  "EXTC_B",
+  "CE_A",
+  "CE_B",
+  "CE_C",
+  "CE_D",
+]
 
 // Updated subject lists for different semesters
 export const SubjectsBySemester = {
   semester1: ["DECA", "PSOOP", "BEE", "DS", "EG", "EM", "EP", "EC", "IKS", "UHV", "TS", "SS1"],
   semester2: ["FOM-II", "MDM", "CCN", "OS", "DAA", "SMCS", "PCS", "HSM-II", "LLC"],
-  semester3: ["DSA", "DBMS", "COA", "SE", "MATHS-III", "EVS", "JAVA"],
+  semester3: ["PCS", "DSGT", "DBMS", "BSES", "DS", "COA", "LLC", "HSM-1"],
   semester4: ["CN", "TOC", "AI", "ML", "WEB", "MOBILE", "CLOUD"],
   semester5: ["COMPILER", "GRAPHICS", "SECURITY", "IOT", "BLOCKCHAIN"],
   semester6: ["PROJECT-I", "INTERNSHIP", "RESEARCH", "ELECTIVE-I"],

@@ -49,7 +49,15 @@ export default function TimetableScreen() {
         selectedDay,
         userProfile.semester || "1",
       )
-      setTimetable(schedule)
+
+      const sortedSchedule = schedule.sort((a, b) => {
+        // Convert time strings to comparable format
+        const timeA = convertTimeToMinutes(a.time);
+        const timeB = convertTimeToMinutes(b.time);
+        return timeA - timeB;
+      });
+
+      setTimetable(sortedSchedule)
     } catch (error) {
       console.error("Error loading timetable:", error)
       showToast("Failed to load timetable", "error")
@@ -57,6 +65,22 @@ export default function TimetableScreen() {
       setIsLoading(false)
     }
   }
+
+  const convertTimeToMinutes = (timeString) => {
+    if (!timeString || timeString === "Time TBA") return 0;
+
+    // Extract first time from formats like "9:00-10:00" or "9:00"
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return 0;
+
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+
+    // If hour is less than 9, assume it's PM (like 1:00 = 13:00)
+    if (hours < 8) hours += 12;
+
+    return hours * 60 + minutes;
+  };
 
   const onRefresh = async () => {
     setRefreshing(true)
@@ -432,10 +456,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   detailsContainer: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-},
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",

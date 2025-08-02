@@ -20,7 +20,7 @@ import { useUser } from "../context/UserContext"
 import { useTheme } from "../context/ThemeContext"
 import { useToast } from "../context/ToastContext"
 import { colors } from "../utils/theme"
-import { Divisions, getBatches } from "../timetable"
+import { getBatches, getSemesterTimetable } from "../timetable" // Import getSemesterTimetable
 import { spacing, createShadow } from "../utils/spacing"
 
 const { width, height } = Dimensions.get("window")
@@ -34,43 +34,66 @@ export default function SetupScreen() {
   const { showToast } = useToast()
   const theme = isDarkMode ? colors.dark : colors.light
 
+  const [semester, setSemester] = useState("")
   const [division, setDivision] = useState("")
   const [batch, setBatch] = useState("")
-  const [semester, setSemester] = useState("")
+  const [availableDivisions, setAvailableDivisions] = useState<string[]>([]) // New state for divisions
   const [availableBatches, setAvailableBatches] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
 
   // State for custom dropdowns
+  const [semesterModalVisible, setSemesterModalVisible] = useState(false) // Reordered
   const [divisionModalVisible, setDivisionModalVisible] = useState(false)
   const [batchModalVisible, setBatchModalVisible] = useState(false)
-  const [semesterModalVisible, setSemesterModalVisible] = useState(false)
 
+  // Effect to update available divisions when semester changes
   useEffect(() => {
-    if (division) {
-      const batches = getBatches(division)
+    if (semester) {
+      const semNum = Number.parseInt(semester)
+      let divisionsForSemester: string[] = []
+      const semesterData = getSemesterTimetable(semester) // Get the timetable data for the selected semester
+
+      if (semesterData) {
+        divisionsForSemester = Object.keys(semesterData)
+      }
+
+      setAvailableDivisions(divisionsForSemester)
+      setDivision("") // Reset division when semester changes
+      setBatch("") // Reset batch when semester changes
+    } else {
+      setAvailableDivisions([])
+      setDivision("")
+      setBatch("")
+    }
+  }, [semester])
+
+  // Effect to update available batches when division or semester changes
+  useEffect(() => {
+    if (division && semester) {
+      const batches = getBatches(division, semester) // Pass semester to getBatches
       setAvailableBatches(batches)
-      setBatch(batches.length > 0 ? batches[0] : "")
+      setBatch(batches.length > 0 ? batches[0] : "") // Pre-select first batch if available
     } else {
       setAvailableBatches([])
       setBatch("")
     }
-  }, [division])
+  }, [division, semester]) // Add semester to dependency array
 
   const handleNext = () => {
     if (currentStep === 1) {
-      if (!division) {
+      if (!semester) {
         showToast({
-          message: "Please select your division to continue",
+          message: "Please select your semester to continue",
           type: "warning",
         })
         return
       }
       setCurrentStep(2)
     } else if (currentStep === 2) {
-      if (!batch) {
+      if (!division) {
         showToast({
-          message: "Please select your batch to continue",
+          message: "Please select your division to continue",
           type: "warning",
         })
         return
@@ -136,9 +159,61 @@ export default function SetupScreen() {
       case 1:
         return (
           <View style={styles.stepContent}>
+            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Semester</Text>
+            <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
+              Choose your current semester
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Semester</Text>
+              <TouchableOpacity
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: isDarkMode ? "#2a2a3e" : "#f8f9fa",
+                    borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
+                  },
+                ]}
+                onPress={() => setSemesterModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.iconContainer}>
+                  <Ionicons name="calendar-outline" size={20} color="#667eea" />
+                </View>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    { color: semester ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
+                  ]}
+                >
+                  {semester ? `Semester ${semester}` : "Select Semester"}
+                </Text>
+                <View style={styles.dropdownIndicator}>
+                  <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={[styles.button]} onPress={handleNext} activeOpacity={0.8}>
+              <LinearGradient
+                colors={["#667eea", "#764ba2"]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.buttonText}>Next</Text>
+                <Ionicons name="arrow-forward" size={20} color="white" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )
+
+      case 2:
+        return (
+          <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Division</Text>
             <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
-              Choose the division you belong to
+              Choose the division you belong to in Semester {semester}
             </Text>
 
             <View style={styles.inputGroup}>
@@ -164,58 +239,6 @@ export default function SetupScreen() {
                   ]}
                 >
                   {division ? `Division ${division}` : "Select Division"}
-                </Text>
-                <View style={styles.dropdownIndicator}>
-                  <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity style={[styles.button]} onPress={handleNext} activeOpacity={0.8}>
-              <LinearGradient
-                colors={["#667eea", "#764ba2"]}
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.buttonText}>Next</Text>
-                <Ionicons name="arrow-forward" size={20} color="white" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )
-
-      case 2:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Batch</Text>
-            <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
-              Choose the batch you belong to in Division {division}
-            </Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Batch</Text>
-              <TouchableOpacity
-                style={[
-                  styles.inputContainer,
-                  {
-                    backgroundColor: isDarkMode ? "#2a2a3e" : "#f8f9fa",
-                    borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
-                  },
-                ]}
-                onPress={() => setBatchModalVisible(true)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.iconContainer}>
-                  <Ionicons name="people-outline" size={20} color="#667eea" />
-                </View>
-                <Text
-                  style={[
-                    styles.dropdownText,
-                    { color: batch ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
-                  ]}
-                >
-                  {batch ? `Batch ${batch}` : "Select Batch"}
                 </Text>
                 <View style={styles.dropdownIndicator}>
                   <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
@@ -251,13 +274,13 @@ export default function SetupScreen() {
       case 3:
         return (
           <View style={styles.stepContent}>
-            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Semester</Text>
+            <Text style={[styles.stepTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Your Batch</Text>
             <Text style={[styles.stepDescription, { color: isDarkMode ? "#a0a0b0" : "#718096" }]}>
-              Choose your current semester
+              Choose the batch you belong to in Division {division}
             </Text>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Semester</Text>
+              <Text style={[styles.label, { color: isDarkMode ? "#ffffff" : "#2d3748" }]}>Batch</Text>
               <TouchableOpacity
                 style={[
                   styles.inputContainer,
@@ -266,19 +289,19 @@ export default function SetupScreen() {
                     borderColor: isDarkMode ? "#3a3a4e" : "#e2e8f0",
                   },
                 ]}
-                onPress={() => setSemesterModalVisible(true)}
+                onPress={() => setBatchModalVisible(true)}
                 activeOpacity={0.8}
               >
                 <View style={styles.iconContainer}>
-                  <Ionicons name="calendar-outline" size={20} color="#667eea" />
+                  <Ionicons name="people-outline" size={20} color="#667eea" />
                 </View>
                 <Text
                   style={[
                     styles.dropdownText,
-                    { color: semester ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
+                    { color: batch ? (isDarkMode ? "#ffffff" : "#2d3748") : isDarkMode ? "#a0a0b0" : "#718096" },
                   ]}
                 >
-                  {semester ? `Semester ${semester}` : "Select Semester"}
+                  {batch ? `Batch ${batch}` : "Select Batch"}
                 </Text>
                 <View style={styles.dropdownIndicator}>
                   <Ionicons name="chevron-down" size={16} color={isDarkMode ? "#a0a0b0" : "#718096"} />
@@ -454,6 +477,41 @@ export default function SetupScreen() {
           </View>
         </ScrollView>
 
+        {/* Semester Selection Modal */}
+        <Modal
+          visible={semesterModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setSemesterModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}>
+                <Text style={[styles.modalTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Semester</Text>
+                <TouchableOpacity onPress={() => setSemesterModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={isDarkMode ? "#ffffff" : "#1a1a2e"} />
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={Semesters}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) =>
+                  renderDropdownItem(
+                    item,
+                    (value) => {
+                      setSemester(value)
+                      setSemesterModalVisible(false)
+                    },
+                    "Semester",
+                  )
+                }
+                style={styles.modalList}
+              />
+            </View>
+          </View>
+        </Modal>
+
         {/* Division Selection Modal */}
         <Modal
           visible={divisionModalVisible}
@@ -471,7 +529,7 @@ export default function SetupScreen() {
               </View>
 
               <FlatList
-                data={Divisions}
+                data={availableDivisions}
                 keyExtractor={(item) => item}
                 renderItem={({ item }) =>
                   renderDropdownItem(
@@ -516,41 +574,6 @@ export default function SetupScreen() {
                       setBatchModalVisible(false)
                     },
                     "Batch",
-                  )
-                }
-                style={styles.modalList}
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Semester Selection Modal */}
-        <Modal
-          visible={semesterModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setSemesterModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: isDarkMode ? "#1e1e2e" : "#ffffff" }]}>
-              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? "#3a3a4e" : "#e2e8f0" }]}>
-                <Text style={[styles.modalTitle, { color: isDarkMode ? "#ffffff" : "#1a1a2e" }]}>Select Semester</Text>
-                <TouchableOpacity onPress={() => setSemesterModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={isDarkMode ? "#ffffff" : "#1a1a2e"} />
-                </TouchableOpacity>
-              </View>
-
-              <FlatList
-                data={Semesters}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) =>
-                  renderDropdownItem(
-                    item,
-                    (value) => {
-                      setSemester(value)
-                      setSemesterModalVisible(false)
-                    },
-                    "Semester",
                   )
                 }
                 style={styles.modalList}

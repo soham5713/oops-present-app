@@ -95,12 +95,33 @@ export default function AttendanceScreen() {
 
     try {
       const subjects = getDaySubjects(userProfile.division, userProfile.batch, dayOfWeek, userProfile.semester)
-      return subjects || []
+      const sortedSubjects = (subjects || []).sort((a, b) => {
+        const timeA = convertTimeToMinutes(a.time);
+        const timeB = convertTimeToMinutes(b.time);
+        return timeA - timeB;
+      });
+      return sortedSubjects || []
     } catch (error) {
       console.error("Error loading timetable:", error)
       return []
     }
   }, [selectedDate, userProfile?.division, userProfile?.batch, userProfile?.semester, getDayOfWeek])
+
+  const convertTimeToMinutes = useCallback((timeString) => {
+    if (!timeString || timeString === "Time TBA") return 0;
+
+    // Extract first time from formats like "9:00-10:00" or "9:00"
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
+    if (!timeMatch) return 0;
+
+    let hours = parseInt(timeMatch[1]);
+    const minutes = parseInt(timeMatch[2]);
+
+    // If hour is less than 9, assume it's PM (like 1:00 = 13:00)
+    if (hours < 9) hours += 12;
+
+    return hours * 60 + minutes;
+  }, []);
 
   // Load attendance records for selected date
   const loadAttendance = useCallback(async () => {
@@ -404,9 +425,8 @@ export default function AttendanceScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Mark Attendance</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
-                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-                }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+              }`
               : "Select your classes"}
           </Text>
         </View>
