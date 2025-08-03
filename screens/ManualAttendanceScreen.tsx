@@ -51,6 +51,8 @@ export default function ManualAttendanceScreen() {
   const theme = isDarkMode ? colors.dark : colors.light
   const { showToast } = useToast()
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [recordToDelete, setRecordToDelete] = useState<{ id: string, subject: string } | null>(null)
   const [records, setRecords] = useState<ManualAttendanceRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -242,32 +244,31 @@ export default function ManualAttendanceScreen() {
   }
 
   // Delete a record
-  const deleteRecord = async (recordId: string) => {
-    if (!user?.uid) return
+  const deleteRecord = (recordId: string, subject: string) => {
+    setRecordToDelete({ id: recordId, subject })
+    setShowDeleteModal(true)
+  }
 
-    Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteManualRecord(user.uid, selectedDate, recordId)
-            setRecords((prev) => prev.filter((record) => record.id !== recordId))
-            showToast({
-              message: "Record deleted successfully",
-              type: "success",
-            })
-          } catch (error) {
-            console.error("Error deleting record:", error)
-            showToast({
-              message: "Failed to delete record",
-              type: "error",
-            })
-          }
-        },
-      },
-    ])
+  const confirmDeleteRecord = async () => {
+    if (!user?.uid || !recordToDelete) return
+
+    try {
+      await deleteManualRecord(user.uid, selectedDate, recordToDelete.id)
+      setRecords((prev) => prev.filter((record) => record.id !== recordToDelete.id))
+      showToast({
+        message: "Record deleted successfully",
+        type: "success",
+      })
+    } catch (error) {
+      console.error("Error deleting record:", error)
+      showToast({
+        message: "Failed to delete record",
+        type: "error",
+      })
+    } finally {
+      setShowDeleteModal(false)
+      setRecordToDelete(null)
+    }
   }
 
   // Date navigation functions
@@ -372,9 +373,9 @@ export default function ManualAttendanceScreen() {
   // Check if selected date is within semester
   const isDateInSemester = semesterSettings
     ? isWithinInterval(parseISO(selectedDate), {
-        start: parseISO(semesterSettings.startDate),
-        end: parseISO(semesterSettings.endDate),
-      })
+      start: parseISO(semesterSettings.startDate),
+      end: parseISO(semesterSettings.endDate),
+    })
     : true
 
   // Date picker component
@@ -477,9 +478,8 @@ export default function ManualAttendanceScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Manual Attendance</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
-                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-                }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+              }`
               : "Add attendance records manually"}
           </Text>
         </View>
@@ -628,7 +628,7 @@ export default function ManualAttendanceScreen() {
                           <View style={[styles.recordActions, { borderTopColor: theme.border }]}>
                             <TouchableOpacity
                               style={[styles.actionButton, { backgroundColor: theme.error + "15" }]}
-                              onPress={() => deleteRecord(record.id)}
+                              onPress={() => deleteRecord(record.id, record.subject)}
                             >
                               <Ionicons name="trash-outline" size={16} color={theme.error} />
                               <Text style={[styles.actionText, { color: theme.error }]}>Delete</Text>
@@ -885,6 +885,60 @@ export default function ManualAttendanceScreen() {
                         <Ionicons name="add-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
                         <Text style={styles.saveButtonText}>Add Record</Text>
                       </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Delete Record Confirmation Modal */}
+          <Modal
+            visible={showDeleteModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowDeleteModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Delete Record</Text>
+                  <TouchableOpacity onPress={() => setShowDeleteModal(false)}>
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalBody}>
+                  <Text style={[styles.modalText, { color: theme.text }]}>
+                    Are you sure you want to delete this attendance record?
+                  </Text>
+                  {recordToDelete && (
+                    <Text style={[styles.recordDeleteText, { color: theme.secondaryText, backgroundColor: theme.background, }]}>
+                      Subject: {recordToDelete.subject}
+                    </Text>
+                  )}
+                  <Text style={[styles.warningText, { color: theme.error }]}>
+                    This action cannot be undone.
+                  </Text>
+                </View>
+
+                <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { borderColor: theme.border }]}
+                    onPress={() => setShowDeleteModal(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.deleteButton, { backgroundColor: theme.error }]}
+                    onPress={confirmDeleteRecord}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Text style={styles.deleteButtonText}>Delete</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -1369,5 +1423,29 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "600",
+  },
+  recordDeleteText: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.medium,
+  },
+  deleteButton: {
+    flex: 2,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: spacing.borderRadius.large,
+  },
+  deleteButtonText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalText: {
+    fontSize: 16,
+    lineHeight: 24,
   },
 })

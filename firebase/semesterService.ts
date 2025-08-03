@@ -2,9 +2,9 @@ import { db } from "./config"
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"
 import { format, endOfMonth } from "date-fns"
 
-// Default semester dates - June 1 to August 31
-const DEFAULT_START_DATE = "2025-06-01"
-const DEFAULT_END_DATE = "2025-08-31"
+// Default semester dates - August 4 to November 26
+const DEFAULT_START_DATE = "2025-08-04"
+const DEFAULT_END_DATE = "2025-11-26"
 
 export type SemesterSettings = {
   startDate: string // ISO format YYYY-MM-DD

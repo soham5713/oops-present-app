@@ -89,34 +89,8 @@ export default function TimetableScreen() {
   }
 
   const getSubjectColor = (subject, type) => {
-    const colors = {
-      // Semester 1 subjects
-      DECA: ["#f87171", "#7f1d1d"],
-      PSOOP: ["#60a5fa", "#1e40af"],
-      BEE: ["#34d399", "#065f46"],
-      DS: ["#a78bfa", "#5b21b6"],
-      EG: ["#fbbf24", "#92400e"],
-      EM: ["#f472b6", "#9d174d"],
-      EP: ["#4ade80", "#166534"],
-      EC: ["#fb923c", "#9a3412"],
-      IKS: ["#a3e635", "#3f6212"],
-      UHV: ["#c084fc", "#6b21a8"],
-      TS: ["#2dd4bf", "#115e59"],
-      SS1: ["#f43f5e", "#9f1239"],
-      // Semester 2 subjects
-      "FOM-II": ["#8b5cf6", "#5b21b6"],
-      MDM: ["#06b6d4", "#0e7490"],
-      CCN: ["#f59e0b", "#d97706"],
-      OS: ["#10b981", "#047857"],
-      DAA: ["#ef4444", "#dc2626"],
-      SMCS: ["#8b5cf6", "#7c3aed"],
-      PCS: ["#f97316", "#ea580c"],
-      "HSM-II": ["#84cc16", "#65a30d"],
-      LLC: ["#ec4899", "#db2777"],
-    }
-
-    const defaultColor = ["#94a3b8", "#475569"]
-    const subjectColor = colors[subject] || defaultColor
+    const defaultColor = ["#4f46e5", "#4f46e5"]
+    const subjectColor = defaultColor
     const actualType = typeof type === "string" ? type : "theory"
     return actualType === "lab" ? subjectColor[1] : subjectColor[0]
   }

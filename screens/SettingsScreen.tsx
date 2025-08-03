@@ -45,6 +45,8 @@ const Semesters = ["1", "2", "3", "4", "5", "6", "7", "8"]
 export default function SettingsScreen() {
   const { userProfile, user, logOut, updateUserProfile } = useUser()
   const { isDarkMode, toggleTheme } = useTheme()
+  const [showClearDataModal, setShowClearDataModal] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const { showToast } = useToast()
 
   const theme = isDarkMode ? colors.dark : colors.light
@@ -86,8 +88,8 @@ export default function SettingsScreen() {
   const [selectedMonth, setSelectedMonth] = useState(new Date())
 
   // Semester dates state
-  const [semesterStartDate, setSemesterStartDate] = useState("2025-06-01")
-  const [semesterEndDate, setSemesterEndDate] = useState("2025-08-31")
+  const [semesterStartDate, setSemesterStartDate] = useState("2025-08-04")
+  const [semesterEndDate, setSemesterEndDate] = useState("2025-11-26")
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false)
   const [datePickerMode, setDatePickerMode] = useState<"start" | "end">("start")
 
@@ -111,8 +113,8 @@ export default function SettingsScreen() {
       } catch (error) {
         console.error("Error loading semester settings:", error)
         // Use default dates
-        setSemesterStartDate("2025-06-01")
-        setSemesterEndDate("2025-08-31")
+        setSemesterStartDate("2025-08-04")
+        setSemesterEndDate("2025-11-26")
       }
     }
   }
@@ -463,8 +465,8 @@ export default function SettingsScreen() {
                 <th>Overall</th>
               </tr>
               ${Object.values(subjectStats)
-                .map(
-                  (stat: any) => `
+          .map(
+            (stat: any) => `
                 <tr>
                   <td>${stat.subject}</td>
                   <td class="${getColorClass(stat.theoryPercentage)}">
@@ -478,8 +480,8 @@ export default function SettingsScreen() {
                   </td>
                 </tr>
               `,
-                )
-                .join("")}
+          )
+          .join("")}
             </table>
           </div>
           
@@ -494,10 +496,10 @@ export default function SettingsScreen() {
                 <th>Notes</th>
               </tr>
               ${attendanceData
-                .slice(0, 20)
-                .flatMap((day) =>
-                  day.records.map(
-                    (record) => `
+          .slice(0, 20)
+          .flatMap((day) =>
+            day.records.map(
+              (record) => `
                   <tr>
                     <td>${new Date(day.date).toLocaleDateString()}</td>
                     <td>${record.subject}</td>
@@ -508,9 +510,9 @@ export default function SettingsScreen() {
                     <td>${record.notes || ""}</td>
                   </tr>
                 `,
-                  ),
-                )
-                .join("")}
+            ),
+          )
+          .join("")}
             </table>
           </div>
           
@@ -555,37 +557,7 @@ export default function SettingsScreen() {
   }
 
   const clearAllData = () => {
-    Alert.alert(
-      "Clear All Data",
-      "This will permanently delete all your attendance data. This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setIsLoading(true)
-            try {
-              if (user) {
-                const collectionsToDelete = ["attendance", "importedAttendance"]
-                for (const coll of collectionsToDelete) {
-                  const q = query(collection(db, coll), where("userId", "==", user.uid))
-                  const snapshot = await getDocs(q)
-                  const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref))
-                  await Promise.all(deletePromises)
-                }
-              }
-              showToast({ message: "All data has been cleared", type: "success" })
-            } catch (error) {
-              console.error("Error clearing data:", error)
-              showToast({ message: "Failed to clear data", type: "error" })
-            } finally {
-              setIsLoading(false)
-            }
-          },
-        },
-      ],
-    )
+    setShowClearDataModal(true)
   }
 
   const deleteAccount = async () => {
@@ -607,10 +579,7 @@ export default function SettingsScreen() {
   }
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: logOut },
-    ])
+    setShowLogoutModal(true)
   }
 
   const openLink = (url: string) => {
@@ -631,7 +600,7 @@ export default function SettingsScreen() {
     onPress,
     isSwitch = false,
     switchValue = false,
-    onSwitchChange = () => {},
+    onSwitchChange = () => { },
     isDestructive = false,
   ) => {
     const titleColor = isDestructive ? theme.error : theme.text
@@ -766,8 +735,7 @@ export default function SettingsScreen() {
                 {renderSettingRow(
                   "school-outline",
                   "Academic Info",
-                  `Sem ${selectedSemester || "N/A"} | Div ${selectedDivision || "N/A"} - Batch ${
-                    selectedBatch || "N/A"
+                  `Sem ${userProfile?.semester || selectedSemester || "N/A"} | Div ${userProfile?.division || selectedDivision || "N/A"} - Batch ${userProfile?.batch || selectedBatch || "N/A"
                   }`,
                   () => setShowSemesterModal(true), // Open semester modal first
                 )}
@@ -803,7 +771,7 @@ export default function SettingsScreen() {
                   exportData,
                   false,
                   false,
-                  () => {},
+                  () => { },
                   false,
                 )}
               </>,
@@ -832,11 +800,11 @@ export default function SettingsScreen() {
                   clearAllData,
                   false,
                   false,
-                  () => {},
+                  () => { },
                   true,
                 )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {renderSettingRow("log-out-outline", "Logout", null, handleLogout, false, false, () => {}, true)}
+                {renderSettingRow("log-out-outline", "Logout", null, handleLogout, false, false, () => { }, true)}
               </>,
             )}
 
@@ -1153,6 +1121,122 @@ export default function SettingsScreen() {
                     <ActivityIndicator size="small" color="white" />
                   ) : (
                     <Text style={styles.modalDeleteButtonText}>Delete Account</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Clear Data Confirmation Modal */}
+        <Modal
+          visible={showClearDataModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowClearDataModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Clear All Data</Text>
+                <TouchableOpacity onPress={() => setShowClearDataModal(false)}>
+                  <Ionicons name="close" size={24} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: theme.text }]}>
+                  This will permanently delete all your attendance data. This action cannot be undone.
+                </Text>
+              </View>
+
+              <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { borderColor: theme.border }]}
+                  onPress={() => setShowClearDataModal(false)}
+                >
+                  <Text style={[styles.modalButtonText, { color: theme.text }]}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalDeleteButton, { backgroundColor: theme.error }]}
+                  onPress={async () => {
+                    setShowClearDataModal(false)
+                    // Your existing delete logic here
+                    setIsLoading(true)
+                    try {
+                      if (user) {
+                        const collectionsToDelete = ["attendance", "importedAttendance"]
+                        for (const coll of collectionsToDelete) {
+                          const q = query(collection(db, coll), where("userId", "==", user.uid))
+                          const snapshot = await getDocs(q)
+                          const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref))
+                          await Promise.all(deletePromises)
+                        }
+                      }
+                      showToast({ message: "All data has been cleared", type: "success" })
+                    } catch (error) {
+                      console.error("Error clearing data:", error)
+                      showToast({ message: "Failed to clear data", type: "error" })
+                    } finally {
+                      setIsLoading(false)
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text style={styles.modalDeleteButtonText}>Delete</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Logout Confirmation Modal */}
+        <Modal
+          visible={showLogoutModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowLogoutModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Logout</Text>
+                <TouchableOpacity onPress={() => setShowLogoutModal(false)}>
+                  <Ionicons name="close" size={24} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: theme.text }]}>
+                  Are you sure you want to logout? You will need to sign in again to access your account.
+                </Text>
+              </View>
+
+              <View style={[styles.modalFooter, { borderTopColor: theme.border }]}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { borderColor: theme.border }]}
+                  onPress={() => setShowLogoutModal(false)}
+                >
+                  <Text style={[styles.modalButtonText, { color: theme.text }]}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalDeleteButton, { backgroundColor: theme.error }]}
+                  onPress={() => {
+                    setShowLogoutModal(false)
+                    logOut()
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text style={styles.modalDeleteButtonText}>Logout</Text>
                   )}
                 </TouchableOpacity>
               </View>

@@ -29,6 +29,7 @@ import { getSemesterSettings, type SemesterSettings } from "../firebase/semester
 import { getHolidays } from "../utils/holidays"
 import { BarChart, LineChart } from "react-native-chart-kit"
 import AttendanceCalculator from "../components/AttendanceCalculator"
+import { useFocusEffect } from "@react-navigation/native"
 
 // Get screen dimensions
 const { width: SCREEN_WIDTH } = Dimensions.get("window")
@@ -116,8 +117,8 @@ export default function HomeScreen() {
         console.error("[SEMESTER] Error loading semester settings:", error)
         // Set default settings on error
         setSemesterSettings({
-          startDate: "2025-06-01",
-          endDate: "2025-08-31",
+          startDate: "2025-08-04",
+          endDate: "2025-11-26",
         })
       } finally {
         setIsLoadingSemester(false)
@@ -126,6 +127,22 @@ export default function HomeScreen() {
 
     loadSemesterSettings()
   }, [user?.uid])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.uid) {
+        const refreshSemesterSettings = async () => {
+          try {
+            const settings = await getSemesterSettings(user.uid)
+            setSemesterSettings(settings)
+          } catch (error) {
+            console.error("Error refreshing semester settings:", error)
+          }
+        }
+        refreshSemesterSettings()
+      }
+    }, [user?.uid])
+  )
 
   const convertTimeToMinutes = useCallback((timeString) => {
     if (!timeString || timeString === "Time TBA") return 0
@@ -300,8 +317,8 @@ export default function HomeScreen() {
       console.log("[OVERALL] Loading overall attendance")
 
       // Get semester settings
-      const startDate = semesterSettings?.startDate || "2025-06-01"
-      const endDate = semesterSettings?.endDate || "2025-08-31"
+      const startDate = semesterSettings?.startDate || "2025-08-04"
+      const endDate = semesterSettings?.endDate || "2025-11-26"
 
       console.log("[OVERALL] Using date range:", { startDate, endDate })
 
@@ -483,8 +500,8 @@ export default function HomeScreen() {
       const endDateStr = format(monthEnd, "yyyy-MM-dd")
 
       // Get semester settings
-      const semesterStart = semesterSettings?.startDate || "2025-06-01"
-      const semesterEnd = semesterSettings?.endDate || "2025-08-31"
+      const semesterStart = semesterSettings?.startDate || "2025-08-04"
+      const semesterEnd = semesterSettings?.endDate || "2025-11-26"
 
       // Ensure we only look at dates within the semester
       const actualStartDate = startDateStr > semesterStart ? startDateStr : semesterStart
@@ -650,7 +667,7 @@ export default function HomeScreen() {
   // Load attendance trend (6 months)
   const loadAttendanceTrend = async (userId: string): Promise<MonthlyDataPoint[]> => {
     try {
-      console.log("[TREND] Loading attendance trend")
+      console.log("[TREND] Loading attendance trend for semester period")
 
       // If we have cached trend data, use it
       if (cachedTrendData.length > 0) {
@@ -658,24 +675,46 @@ export default function HomeScreen() {
         return cachedTrendData
       }
 
-      const now = new Date()
-      const sixMonthsAgo = subMonths(now, 5) // Get 6 months including current
+      // Get semester settings
+      const semesterStart = semesterSettings?.startDate || "2025-08-04"
+      const semesterEnd = semesterSettings?.endDate || "2025-11-26"
 
-      // Create array of the last 6 months
-      const months: Date[] = []
-      for (let i = 0; i < 6; i++) {
-        months.push(addMonths(sixMonthsAgo, i))
+      console.log("[TREND] Semester period:", { semesterStart, semesterEnd })
+
+      // Parse semester dates
+      const startDate = new Date(semesterStart)
+      const endDate = new Date(semesterEnd)
+
+      // Validate dates
+      if (!isValid(startDate) || !isValid(endDate)) {
+        console.error("[TREND] Invalid semester dates")
+        return []
       }
 
-      // Get semester settings
-      const semesterStart = semesterSettings?.startDate || "2025-06-01"
-      const semesterEnd = semesterSettings?.endDate || "2025-08-31"
+      // Generate all months from semester start to end
+      const months: Date[] = []
+      let currentMonth = startOfMonth(startDate)
+      const lastMonth = startOfMonth(endDate)
+
+      while (currentMonth <= lastMonth) {
+        months.push(new Date(currentMonth))
+        currentMonth = addMonths(currentMonth, 1)
+      }
+
+      console.log(`[TREND] Generated ${months.length} months for trend:`, months.map(m => format(m, "MMM yyyy")))
 
       // Get user's subjects
       const userSubjects = getUserSubjects()
 
-      // Get attendance data for each month
-      const trendData: MonthlyDataPoint[] = []
+      if (userSubjects.length === 0) {
+        console.log("[TREND] No subjects found")
+        // Return empty data with month labels
+        return months.map(month => ({
+          month: format(month, "MMM"),
+          theoryAttendance: 0,
+          labAttendance: 0,
+        }))
+      }
 
       // Fetch all attendance data at once to reduce Firebase calls
       const attendanceQuery = query(
@@ -695,7 +734,11 @@ export default function HomeScreen() {
         }
       })
 
+      console.log(`[TREND] Retrieved ${Object.keys(allRecords).length} days of records for trend analysis`)
+
       // Process each month using the in-memory records
+      const trendData: MonthlyDataPoint[] = []
+
       for (const month of months) {
         const monthStart = startOfMonth(month)
         const monthEnd = endOfMonth(month)
@@ -717,16 +760,25 @@ export default function HomeScreen() {
           Object.entries(allRecords).forEach(([date, records]) => {
             if (date >= actualStartDate && date <= actualEndDate && !shouldExcludeDate(date)) {
               records.forEach((record: any) => {
+                // Skip imported data for trend analysis
+                if (record.notes?.includes("[IMPORTED]")) {
+                  return
+                }
+
                 if (!userSubjects.includes(record.subject)) {
                   return // Skip subjects not in user's timetable
                 }
 
-                if (record.type === "theory") {
+                if (record.status === "cancelled") {
+                  return // Skip cancelled classes
+                }
+
+                if (record.type === "theory" && record.status && record.status !== "") {
                   theoryTotal++
                   if (record.status === "present") {
                     theoryPresent++
                   }
-                } else if (record.type === "lab") {
+                } else if (record.type === "lab" && record.status && record.status !== "") {
                   labTotal++
                   if (record.status === "present") {
                     labPresent++
@@ -745,30 +797,67 @@ export default function HomeScreen() {
           theoryAttendance: theoryPercentage,
           labAttendance: labPercentage,
         })
+
+        console.log(`[TREND] ${format(month, "MMM yyyy")}: Theory ${theoryPresent}/${theoryTotal} (${theoryPercentage}%), Lab ${labPresent}/${labTotal} (${labPercentage}%)`)
       }
 
       // Cache the trend data
       setCachedTrendData(trendData)
 
+      console.log("[TREND] Final trend data:", trendData)
       return trendData
     } catch (error) {
       console.error("[TREND] Error loading attendance trend:", error)
-      // Return empty data with month labels if there's an error
-      const now = new Date()
-      const sixMonthsAgo = subMonths(now, 5)
-      const months: MonthlyDataPoint[] = []
 
-      for (let i = 0; i < 6; i++) {
-        const month = addMonths(sixMonthsAgo, i)
+      // Return empty data with semester month labels if there's an error
+      if (semesterSettings) {
+        const startDate = new Date(semesterSettings.startDate)
+        const endDate = new Date(semesterSettings.endDate)
+
+        if (isValid(startDate) && isValid(endDate)) {
+          const months: MonthlyDataPoint[] = []
+          let currentMonth = startOfMonth(startDate)
+          const lastMonth = startOfMonth(endDate)
+
+          while (currentMonth <= lastMonth) {
+            months.push({
+              month: format(currentMonth, "MMM"),
+              theoryAttendance: 0,
+              labAttendance: 0,
+            })
+            currentMonth = addMonths(currentMonth, 1)
+          }
+
+          return months
+        }
+      }
+
+      // Fallback to current semester months if semester settings are not available
+      const fallbackStart = new Date("2025-08-04")
+      const fallbackEnd = new Date("2025-11-26")
+      const months: MonthlyDataPoint[] = []
+      let currentMonth = startOfMonth(fallbackStart)
+      const lastMonth = startOfMonth(fallbackEnd)
+
+      while (currentMonth <= lastMonth) {
         months.push({
-          month: format(month, "MMM"),
+          month: format(currentMonth, "MMM"),
           theoryAttendance: 0,
           labAttendance: 0,
         })
+        currentMonth = addMonths(currentMonth, 1)
       }
 
       return months
     }
+  }
+
+  // Update the trend chart width calculation to accommodate variable number of months
+  const getTrendChartWidth = () => {
+    const monthCount = trendData.length
+    const minWidth = SCREEN_WIDTH - 64
+    const dynamicWidth = Math.max(minWidth, monthCount * 60) // 60px per month minimum
+    return dynamicWidth
   }
 
   // Add effect to clear cache when user changes
@@ -855,9 +944,8 @@ export default function HomeScreen() {
     setActiveTab(tab)
   }
 
-  // Update the goToPreviousMonth and goToNextMonth functions to show loading state
+  // Update the goToPreviousMonth and goToNextMonth functions
   const goToPreviousMonth = () => {
-    // Calculate the new month first
     const newMonth = subMonths(selectedMonth, 1)
     console.log(`[NAV] Navigating from ${format(selectedMonth, "MMMM yyyy")} to ${format(newMonth, "MMMM yyyy")}`)
 
@@ -869,25 +957,21 @@ export default function HomeScreen() {
     setSelectedMonth(newMonth)
   }
 
-  // Similarly update goToNextMonth
   const goToNextMonth = () => {
     const nextMonth = addMonths(selectedMonth, 1)
-    // Don't allow selecting future months beyond current
-    if (nextMonth <= new Date()) {
-      console.log(`[NAV] Navigating from ${format(selectedMonth, "MMMM yyyy")} to ${format(nextMonth, "MMMM yyyy")}`)
+    console.log(`[NAV] Navigating from ${format(selectedMonth, "MMMM yyyy")} to ${format(nextMonth, "MMMM yyyy")}`)
 
-      // Show loading indicator and clear monthly stats immediately
-      setIsLoading(true)
-      setMonthlyStats([])
+    // Show loading indicator and clear monthly stats immediately
+    setIsLoading(true)
+    setMonthlyStats([])
 
-      // Update the selected month state
-      setSelectedMonth(nextMonth)
-    }
+    // Update the selected month state
+    setSelectedMonth(nextMonth)
   }
 
   const getSemesterInfo = () => {
-    const startDate = semesterSettings?.startDate || "2025-06-01"
-    const endDate = semesterSettings?.endDate || "2025-08-31"
+    const startDate = semesterSettings?.startDate || "2025-08-04"
+    const endDate = semesterSettings?.endDate || "2025-11-26"
 
     return `Semester ${userProfile?.semester || ""} attendance from ${format(new Date(startDate), "MMM d")} to ${format(new Date(endDate), "MMM d, yyyy")}`
   }
@@ -1030,7 +1114,7 @@ export default function HomeScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.tableHeader}
           >
-            <Text style={[styles.headerCell, styles.subjectCell, { color: "white" }]}>Subject</Text>
+            <Text style={[styles.headerCell, styles.subjectCell, { color: "white", verticalAlign: "middle" }]}>Subject</Text>
             <View style={styles.theoryLabCell}>
               <Text style={[styles.headerCell, { color: "white" }]}>Theory</Text>
               <View style={styles.attendanceDetails}>
@@ -1108,9 +1192,8 @@ export default function HomeScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Dashboard</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
-                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-                }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+              }`
               : "Your Attendance Overview"}
           </Text>
         </View>
@@ -1285,13 +1368,8 @@ export default function HomeScreen() {
               </View>
 
               <TouchableOpacity
-                style={[
-                  styles.monthNavButton,
-                  { backgroundColor: theme.primary + "15" },
-                  isSameMonth(selectedMonth, new Date()) && { opacity: 0.5 },
-                ]}
+                style={[styles.monthNavButton, { backgroundColor: theme.primary + "15" }]}
                 onPress={goToNextMonth}
-                disabled={isSameMonth(selectedMonth, new Date())}
               >
                 <Ionicons name="chevron-forward" size={20} color={theme.primary} />
               </TouchableOpacity>
@@ -1349,6 +1427,9 @@ export default function HomeScreen() {
                         width={Math.max(SCREEN_WIDTH - 64, getTheoryBarChartData().labels.length * 60)}
                         height={180}
                         yAxisSuffix="%"
+                        fromZero={true}
+                        segments={4}
+                        yAxisInterval={1}
                         chartConfig={{
                           backgroundColor: theme.card,
                           backgroundGradientFrom: theme.card,
@@ -1357,6 +1438,17 @@ export default function HomeScreen() {
                           color: (opacity = 1) => "#4f46e5",
                           labelColor: (opacity = 1) => theme.text,
                           barPercentage: 0.6,
+                          yAxisMin: 0,
+                          yAxisMax: 100,
+                          formatYLabel: (value) => {
+                            const numValue = parseFloat(value);
+                            if (numValue === 0) return "0";
+                            if (numValue === 25) return "25";
+                            if (numValue === 50) return "50";
+                            if (numValue === 75) return "75";
+                            if (numValue === 100) return "100";
+                            return "0";
+                          },
                         }}
                         style={{
                           marginVertical: 8,
@@ -1367,7 +1459,6 @@ export default function HomeScreen() {
                     </ScrollView>
                   </View>
 
-                  {/* Lab Bar Chart */}
                   <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
                     <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance (%)</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -1376,6 +1467,9 @@ export default function HomeScreen() {
                         width={Math.max(SCREEN_WIDTH - 64, getLabBarChartData().labels.length * 60)}
                         height={180}
                         yAxisSuffix="%"
+                        fromZero={true}
+                        segments={4}
+                        yAxisInterval={1}
                         chartConfig={{
                           backgroundColor: theme.card,
                           backgroundGradientFrom: theme.card,
@@ -1384,6 +1478,17 @@ export default function HomeScreen() {
                           color: (opacity = 1) => "#0ea5e9",
                           labelColor: (opacity = 1) => theme.text,
                           barPercentage: 0.6,
+                          yAxisMin: 0,
+                          yAxisMax: 100,
+                          formatYLabel: (value) => {
+                            const numValue = parseFloat(value);
+                            if (numValue === 0) return "0";
+                            if (numValue === 25) return "25";
+                            if (numValue === 50) return "50";
+                            if (numValue === 75) return "75";
+                            if (numValue === 100) return "100";
+                            return "0";
+                          },
                         }}
                         style={{
                           marginVertical: 8,
@@ -1399,58 +1504,86 @@ export default function HomeScreen() {
                     <>
                       <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
                         <Text style={[styles.chartTitle, { color: theme.text }]}>Theory Attendance Trend</Text>
-                        <LineChart
-                          data={getTheoryTrendData()}
-                          width={SCREEN_WIDTH - 64}
-                          height={180}
-                          yAxisSuffix="%"
-                          chartConfig={{
-                            backgroundColor: theme.card,
-                            backgroundGradientFrom: theme.card,
-                            backgroundGradientTo: theme.card,
-                            decimalPlaces: 0,
-                            color: (opacity = 1) => "#4f46e5",
-                            labelColor: (opacity = 1) => theme.text,
-                            propsForDots: {
-                              r: "6",
-                              strokeWidth: "2",
-                              stroke: "#4f46e5",
-                            },
-                          }}
-                          bezier
-                          style={{
-                            marginVertical: 8,
-                            borderRadius: 16,
-                          }}
-                        />
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <LineChart
+                            data={getTheoryTrendData()}
+                            width={getTrendChartWidth()}
+                            height={180}
+                            yAxisSuffix="%"
+                            chartConfig={{
+                              backgroundColor: theme.card,
+                              backgroundGradientFrom: theme.card,
+                              backgroundGradientTo: theme.card,
+                              decimalPlaces: 0,
+                              color: (opacity = 1) => "#4f46e5",
+                              labelColor: (opacity = 1) => theme.text,
+                              propsForDots: {
+                                r: "6",
+                                strokeWidth: "2",
+                                stroke: "#4f46e5",
+                              },
+                              yAxisMin: 0,
+                              yAxisMax: 100,
+                              formatYLabel: (value) => {
+                                const numValue = parseFloat(value);
+                                if (numValue === 0) return "0";
+                                if (numValue === 25) return "25";
+                                if (numValue === 50) return "50";
+                                if (numValue === 75) return "75";
+                                if (numValue === 100) return "100";
+                                return "";
+                              },
+                            }}
+                            segments={4}
+                            bezier
+                            style={{
+                              marginVertical: 8,
+                              borderRadius: 16,
+                            }}
+                          />
+                        </ScrollView>
                       </View>
 
                       <View style={[styles.chartCard, { backgroundColor: theme.card }]}>
                         <Text style={[styles.chartTitle, { color: theme.text }]}>Lab Attendance Trend</Text>
-                        <LineChart
-                          data={getLabTrendData()}
-                          width={SCREEN_WIDTH - 64}
-                          height={180}
-                          yAxisSuffix="%"
-                          chartConfig={{
-                            backgroundColor: theme.card,
-                            backgroundGradientFrom: theme.card,
-                            backgroundGradientTo: theme.card,
-                            decimalPlaces: 0,
-                            color: (opacity = 1) => "#0ea5e9",
-                            labelColor: (opacity = 1) => theme.text,
-                            propsForDots: {
-                              r: "6",
-                              strokeWidth: "2",
-                              stroke: "#0ea5e9",
-                            },
-                          }}
-                          bezier
-                          style={{
-                            marginVertical: 8,
-                            borderRadius: 16,
-                          }}
-                        />
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <LineChart
+                            data={getLabTrendData()}
+                            width={getTrendChartWidth()}
+                            height={180}
+                            yAxisSuffix="%"
+                            chartConfig={{
+                              backgroundColor: theme.card,
+                              backgroundGradientFrom: theme.card,
+                              backgroundGradientTo: theme.card,
+                              decimalPlaces: 0,
+                              color: (opacity = 1) => "#0ea5e9",
+                              labelColor: (opacity = 1) => theme.text,
+                              propsForDots: {
+                                r: "6",
+                                strokeWidth: "2",
+                                stroke: "#0ea5e9",
+                              },
+                              yAxisMin: 0,
+                              yAxisMax: 100,
+                              formatYLabel: (value) => {
+                                const numValue = parseFloat(value);
+                                if (numValue === 0) return "0";
+                                if (numValue === 25) return "25";
+                                if (numValue === 50) return "50";
+                                if (numValue === 75) return "75";
+                                if (numValue === 100) return "100";
+                                return "";
+                              },
+                            }}
+                            segments={4}
+                            bezier
+                            style={{
+                              marginVertical: 8,
+                              borderRadius: 16,
+                            }}
+                          />
+                        </ScrollView>
                       </View>
                     </>
                   )}
@@ -1492,13 +1625,13 @@ export default function HomeScreen() {
                           ? overallTheoryAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                                (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
-                                  Math.max(
-                                    1,
-                                    monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
-                                  )) *
-                                  100,
-                              )
+                              (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
+                                Math.max(
+                                  1,
+                                  monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
+                                )) *
+                              100,
+                            )
                             : 0}
                         %
                       </Text>
@@ -1529,13 +1662,13 @@ export default function HomeScreen() {
                           ? overallLabAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                                (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
-                                  Math.max(
-                                    1,
-                                    monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
-                                  )) *
-                                  100,
-                              )
+                              (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
+                                Math.max(
+                                  1,
+                                  monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
+                                )) *
+                              100,
+                            )
                             : 0}
                         %
                       </Text>
@@ -1915,8 +2048,9 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
   theoryLabCell: {
-    flex: 1.5,
+    flex: 2.5,
     alignItems: "center",
+    marginLeft: 30,
   },
   attendanceDetails: {
     flexDirection: "row",
