@@ -51,6 +51,9 @@ type SubjectCalculation = {
   // Cancelled lectures
   theoryCancelled: number
   labCancelled: number
+  // Manual (extra) lectures
+  theoryManual: number
+  labManual: number
   importedData: {
     theoryTotal: number
     theoryAttended: number
@@ -340,9 +343,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
           let theoryAttendedFromRecords = 0
           let theoryConductedFromRecords = 0
           let theoryCancelledFromRecords = 0
+          let theoryManualFromRecords = 0
           let labAttendedFromRecords = 0
           let labConductedFromRecords = 0
           let labCancelledFromRecords = 0
+          let labManualFromRecords = 0
 
           Object.entries(records).forEach(([date, dateRecords]) => {
             const dayOfWeek = new Date(date).getDay()
@@ -362,6 +367,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
                     if (record.status === "present") {
                       theoryAttendedFromRecords++
                     }
+
+                    // Check if this is a manual (extra) lecture
+                    if (record.isManual || (record.notes && record.notes.includes("[MANUAL]"))) {
+                      theoryManualFromRecords++
+                    }
                   }
                   // Empty status means lecture was not conducted - don't count it anywhere
                 } else if (record.type === "lab") {
@@ -373,6 +383,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
                     labConductedFromRecords++
                     if (record.status === "present") {
                       labAttendedFromRecords++
+                    }
+
+                    // Check if this is a manual (extra) lecture
+                    if (record.isManual || (record.notes && record.notes.includes("[MANUAL]"))) {
+                      labManualFromRecords++
                     }
                   }
                   // Empty status means lecture was not conducted - don't count it anywhere
@@ -393,11 +408,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
           const theoryPercentage = theoryConducted > 0 ? Math.round((theoryAttended / theoryConducted) * 100) : 0
           const labPercentage = labConducted > 0 ? Math.round((labAttended / labConducted) * 100) : 0
 
-          // Total semester lectures (expected - cancelled)
-          const theoryTotalSemester = expectedLectures.theory - theoryCancelledFromRecords
-          const labTotalSemester = expectedLectures.lab - labCancelledFromRecords
+          // Total semester lectures (expected - cancelled + manual extra lectures)
+          const theoryTotalSemester = expectedLectures.theory - theoryCancelledFromRecords + theoryManualFromRecords
+          const labTotalSemester = expectedLectures.lab - labCancelledFromRecords + labManualFromRecords
 
-          // Calculate requirements for 75% of total semester (excluding cancelled)
+          // Calculate requirements for 75% of total semester
           const theoryRequired75 = Math.ceil(theoryTotalSemester * 0.75)
           const labRequired75 = Math.ceil(labTotalSemester * 0.75)
 
@@ -405,7 +420,9 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
           const theoryNeedToAttend = Math.max(0, theoryRequired75 - theoryAttended)
           const labNeedToAttend = Math.max(0, labRequired75 - labAttended)
 
-          // Calculate actual remaining lectures (total remaining - what's already conducted)
+          // Calculate actual remaining lectures (scheduled remaining + manual extra lectures that could be added)
+          // For remaining lectures, we use the original scheduled remaining lectures
+          // plus any potential for manual extra lectures (which we can't predict, so we keep it as scheduled)
           const theoryActualRemaining = Math.max(0, theoryTotalSemester - theoryConducted)
           const labActualRemaining = Math.max(0, labTotalSemester - labConducted)
 
@@ -450,6 +467,9 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
             // Add cancelled lectures for reference
             theoryCancelled: theoryCancelledFromRecords,
             labCancelled: labCancelledFromRecords,
+            // Add manual (extra) lectures for reference
+            theoryManual: theoryManualFromRecords,
+            labManual: labManualFromRecords,
           }
         }
 
@@ -520,14 +540,21 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
             </View>
           </View>
 
-          {calc.theoryCancelled > 0 && (
-            <View style={[styles.cancelledInfo, { backgroundColor: theme.warning + "20" }]}>
-              <Ionicons name="alert-circle" size={16} color={theme.warning} />
-              <Text style={[styles.cancelledText, { color: theme.warning }]}>
-                {calc.theoryCancelled} lecture{calc.theoryCancelled > 1 ? "s" : ""} cancelled
-              </Text>
-            </View>
-          )}
+          {/* Show cancelled and manual lecture info */}
+          <View style={styles.lectureInfoContainer}>
+            {calc.theoryCancelled > 0 && (
+              <View style={[styles.lectureInfo, { backgroundColor: theme.error + "20" }]}>
+                <Ionicons name="close-circle" size={16} color={theme.error} />
+                <Text style={[styles.lectureInfoText, { color: theme.error }]}>{calc.theoryCancelled} cancelled</Text>
+              </View>
+            )}
+            {calc.theoryManual > 0 && (
+              <View style={[styles.lectureInfo, { backgroundColor: theme.success + "20" }]}>
+                <Ionicons name="add-circle" size={16} color={theme.success} />
+                <Text style={[styles.lectureInfoText, { color: theme.success }]}>{calc.theoryManual} extra</Text>
+              </View>
+            )}
+          </View>
 
           <View
             style={[
@@ -580,14 +607,21 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
             </View>
           </View>
 
-          {calc.labCancelled > 0 && (
-            <View style={[styles.cancelledInfo, { backgroundColor: theme.warning + "20" }]}>
-              <Ionicons name="alert-circle" size={16} color={theme.warning} />
-              <Text style={[styles.cancelledText, { color: theme.warning }]}>
-                {calc.labCancelled} session{calc.labCancelled > 1 ? "s" : ""} cancelled
-              </Text>
-            </View>
-          )}
+          {/* Show cancelled and manual lecture info */}
+          <View style={styles.lectureInfoContainer}>
+            {calc.labCancelled > 0 && (
+              <View style={[styles.lectureInfo, { backgroundColor: theme.error + "20" }]}>
+                <Ionicons name="close-circle" size={16} color={theme.error} />
+                <Text style={[styles.lectureInfoText, { color: theme.error }]}>{calc.labCancelled} cancelled</Text>
+              </View>
+            )}
+            {calc.labManual > 0 && (
+              <View style={[styles.lectureInfo, { backgroundColor: theme.success + "20" }]}>
+                <Ionicons name="add-circle" size={16} color={theme.success} />
+                <Text style={[styles.lectureInfoText, { color: theme.success }]}>{calc.labManual} extra</Text>
+              </View>
+            )}
+          </View>
 
           <View
             style={[
@@ -822,14 +856,20 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
-  cancelledInfo: {
+  lectureInfoContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: spacing.sm,
+  },
+  lectureInfo: {
     flexDirection: "row",
     alignItems: "center",
     padding: spacing.sm,
     borderRadius: spacing.borderRadius.medium,
-    marginBottom: spacing.sm,
+    marginRight: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  cancelledText: {
+  lectureInfoText: {
     marginLeft: spacing.xs,
     fontSize: 12,
     fontWeight: "500",
