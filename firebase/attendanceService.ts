@@ -29,10 +29,18 @@ export const saveAttendance = async (userId: string, records: AttendanceRecord[]
   }
 
   try {
+    // Filter out records with empty status (not conducted lectures)
+    const validRecords = records.filter((record) => record.status && record.status !== "")
+
+    if (validRecords.length === 0) {
+      // No valid records to save
+      return true
+    }
+
     // Group records by date for batch processing
     const recordsByDate: { [date: string]: AttendanceRecord[] } = {}
 
-    records.forEach((record) => {
+    validRecords.forEach((record) => {
       if (!recordsByDate[record.date]) {
         recordsByDate[record.date] = []
       }

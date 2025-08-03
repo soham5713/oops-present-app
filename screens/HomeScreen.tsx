@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import {
   View,
   Text,
@@ -42,6 +42,8 @@ type SubjectAttendance = {
   labTotal: number
   labPresent: number
   labPercentage: number
+  theoryCancelled?: number
+  labCancelled?: number
   color?: string
   importedData?: {
     theoryTotal: number
@@ -126,20 +128,20 @@ export default function HomeScreen() {
   }, [user?.uid])
 
   const convertTimeToMinutes = useCallback((timeString) => {
-    if (!timeString || timeString === "Time TBA") return 0;
+    if (!timeString || timeString === "Time TBA") return 0
 
     // Extract first time from formats like "9:00-10:00" or "9:00"
-    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
-    if (!timeMatch) return 0;
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/)
+    if (!timeMatch) return 0
 
-    let hours = parseInt(timeMatch[1]);
-    const minutes = parseInt(timeMatch[2]);
+    let hours = Number.parseInt(timeMatch[1])
+    const minutes = Number.parseInt(timeMatch[2])
 
     // If hour is less than 9, assume it's PM (like 1:00 = 13:00)
-    if (hours < 9) hours += 12;
+    if (hours < 9) hours += 12
 
-    return hours * 60 + minutes;
-  }, []);
+    return hours * 60 + minutes
+  }, [])
 
   // Get subjects for the user's division, batch, and semester
   const getUserSubjects = () => {
@@ -326,6 +328,8 @@ export default function HomeScreen() {
           labTotal: 0,
           labPresent: 0,
           labPercentage: 0,
+          theoryCancelled: 0,
+          labCancelled: 0,
           importedData: {
             theoryTotal: 0,
             theoryAttended: 0,
@@ -353,14 +357,22 @@ export default function HomeScreen() {
           }
 
           if (record.type === "theory") {
-            stats[record.subject].theoryTotal++
-            if (record.status === "present") {
-              stats[record.subject].theoryPresent++
+            if (record.status === "cancelled") {
+              stats[record.subject].theoryCancelled++
+            } else if (record.status && record.status !== "") {
+              stats[record.subject].theoryTotal++
+              if (record.status === "present") {
+                stats[record.subject].theoryPresent++
+              }
             }
           } else if (record.type === "lab") {
-            stats[record.subject].labTotal++
-            if (record.status === "present") {
-              stats[record.subject].labPresent++
+            if (record.status === "cancelled") {
+              stats[record.subject].labCancelled++
+            } else if (record.status && record.status !== "") {
+              stats[record.subject].labTotal++
+              if (record.status === "present") {
+                stats[record.subject].labPresent++
+              }
             }
           }
         })
@@ -438,14 +450,16 @@ export default function HomeScreen() {
       // Calculate overall attendance percentages with bounds checking
       const totalTheoryPresent = filteredStats.reduce((sum, stat) => sum + stat.theoryPresent, 0)
       const totalTheoryClasses = filteredStats.reduce((sum, stat) => sum + stat.theoryTotal, 0)
-      const overallTheoryPercentage = totalTheoryClasses > 0 ?
-        Math.min(100, Math.max(0, Math.round((totalTheoryPresent / totalTheoryClasses) * 100))) : 0
+      const overallTheoryPercentage =
+        totalTheoryClasses > 0
+          ? Math.min(100, Math.max(0, Math.round((totalTheoryPresent / totalTheoryClasses) * 100)))
+          : 0
       setOverallTheoryAttendance(overallTheoryPercentage)
 
       const totalLabPresent = filteredStats.reduce((sum, stat) => sum + stat.labPresent, 0)
       const totalLabClasses = filteredStats.reduce((sum, stat) => sum + stat.labTotal, 0)
-      const overallLabPercentage = totalLabClasses > 0 ?
-        Math.min(100, Math.max(0, Math.round((totalLabPresent / totalLabClasses) * 100))) : 0
+      const overallLabPercentage =
+        totalLabClasses > 0 ? Math.min(100, Math.max(0, Math.round((totalLabPresent / totalLabClasses) * 100))) : 0
       setOverallLabAttendance(overallLabPercentage)
 
       console.log(`[OVERALL] Overall percentages - Theory: ${overallTheoryPercentage}%, Lab: ${overallLabPercentage}%`)
@@ -527,6 +541,8 @@ export default function HomeScreen() {
           labTotal: 0,
           labPresent: 0,
           labPercentage: 0,
+          theoryCancelled: 0,
+          labCancelled: 0,
           importedData: {
             theoryTotal: 0,
             theoryAttended: 0,
@@ -555,14 +571,24 @@ export default function HomeScreen() {
           }
 
           if (record.type === "theory") {
-            stats[record.subject].theoryTotal++
-            if (record.status === "present") {
-              stats[record.subject].theoryPresent++
+            if (record.status === "cancelled") {
+              stats[record.subject].theoryCancelled++
+            } else if (record.status && record.status !== "") {
+              // Only count records with actual status (present/absent) as conducted
+              stats[record.subject].theoryTotal++
+              if (record.status === "present") {
+                stats[record.subject].theoryPresent++
+              }
             }
           } else if (record.type === "lab") {
-            stats[record.subject].labTotal++
-            if (record.status === "present") {
-              stats[record.subject].labPresent++
+            if (record.status === "cancelled") {
+              stats[record.subject].labCancelled++
+            } else if (record.status && record.status !== "") {
+              // Only count records with actual status (present/absent) as conducted
+              stats[record.subject].labTotal++
+              if (record.status === "present") {
+                stats[record.subject].labPresent++
+              }
             }
           }
         })
@@ -1009,7 +1035,7 @@ export default function HomeScreen() {
               <Text style={[styles.headerCell, { color: "white" }]}>Theory</Text>
               <View style={styles.attendanceDetails}>
                 <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Att.</Text>
-                <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Total</Text>
+                <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Cond.</Text>
                 <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>%</Text>
               </View>
             </View>
@@ -1017,7 +1043,7 @@ export default function HomeScreen() {
               <Text style={[styles.headerCell, { color: "white" }]}>Lab</Text>
               <View style={styles.attendanceDetails}>
                 <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Att.</Text>
-                <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Total</Text>
+                <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>Cond.</Text>
                 <Text style={[styles.smallHeaderCell, { color: "rgba(255,255,255,0.8)" }]}>%</Text>
               </View>
             </View>
@@ -1026,42 +1052,45 @@ export default function HomeScreen() {
           {/* Table Rows */}
           {stats.map((stat, index) => {
             return (
-              <View
-                key={stat.subject}
-                style={[
-                  styles.tableRow,
-                  {
-                    backgroundColor: theme.card,
-                    borderLeftWidth: 4,
-                    borderLeftColor: stat.color || subjectColors[index % subjectColors.length],
-                  },
-                  index % 2 === 0 && { backgroundColor: isDarkMode ? theme.background : "#f9fafb" },
-                ]}
-              >
-                <Text style={[styles.subjectCell, { color: theme.text }]}>{stat.subject}</Text>
+              <React.Fragment key={stat.subject}>
+                <View
+                  style={[
+                    styles.tableRow,
+                    {
+                      backgroundColor: theme.card,
+                      borderLeftWidth: 4,
+                      borderLeftColor: stat.color || subjectColors[index % subjectColors.length],
+                    },
+                    index % 2 === 0 && { backgroundColor: isDarkMode ? theme.background : "#f9fafb" },
+                  ]}
+                >
+                  <Text style={[styles.subjectCell, { color: theme.text }]}>{stat.subject}</Text>
 
-                <View style={styles.theoryLabCell}>
-                  <View style={styles.attendanceDetails}>
-                    <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryPresent}</Text>
-                    <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryTotal}</Text>
-                    <View
-                      style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.theoryPercentage) }]}
-                    >
-                      <Text style={styles.percentageText}>{stat.theoryPercentage}%</Text>
+                  <View style={styles.theoryLabCell}>
+                    <View style={styles.attendanceDetails}>
+                      <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryPresent}</Text>
+                      <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.theoryTotal}</Text>
+                      <View
+                        style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.theoryPercentage) }]}
+                      >
+                        <Text style={styles.percentageText}>{stat.theoryPercentage}%</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.theoryLabCell}>
+                    <View style={styles.attendanceDetails}>
+                      <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labPresent}</Text>
+                      <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labTotal}</Text>
+                      <View
+                        style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.labPercentage) }]}
+                      >
+                        <Text style={styles.percentageText}>{stat.labPercentage}%</Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-
-                <View style={styles.theoryLabCell}>
-                  <View style={styles.attendanceDetails}>
-                    <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labPresent}</Text>
-                    <Text style={[styles.attendanceValue, { color: theme.text }]}>{stat.labTotal}</Text>
-                    <View style={[styles.percentageBadge, { backgroundColor: getPercentageColor(stat.labPercentage) }]}>
-                      <Text style={styles.percentageText}>{stat.labPercentage}%</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              </React.Fragment>
             )
           })}
         </View>
@@ -1079,8 +1108,9 @@ export default function HomeScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Dashboard</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-              }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
+                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+                }`
               : "Your Attendance Overview"}
           </Text>
         </View>
@@ -1302,7 +1332,6 @@ export default function HomeScreen() {
               </View>
             ) : (
               <>
-
                 {/* Attendance Table */}
                 <View style={styles.tableSection}>
                   <Text style={[styles.tableSectionTitle, { color: theme.text }]}>Detailed Attendance</Text>
@@ -1439,7 +1468,7 @@ export default function HomeScreen() {
 
                   <View style={styles.summaryStats}>
                     <View style={styles.summaryStatItem}>
-                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Theory Classes</Text>
+                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Theory (Att/Cond)</Text>
                       <Text style={[styles.summaryStatValue, { color: theme.text }]}>
                         {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
                           (sum, stat) => sum + stat.theoryPresent,
@@ -1463,20 +1492,20 @@ export default function HomeScreen() {
                           ? overallTheoryAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                              (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
-                                Math.max(
-                                  1,
-                                  monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
-                                )) *
-                              100,
-                            )
+                                (monthlyStats.reduce((sum, stat) => sum + stat.theoryPresent, 0) /
+                                  Math.max(
+                                    1,
+                                    monthlyStats.reduce((sum, stat) => sum + stat.theoryTotal, 0),
+                                  )) *
+                                  100,
+                              )
                             : 0}
                         %
                       </Text>
                     </View>
 
                     <View style={styles.summaryStatItem}>
-                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Lab Classes</Text>
+                      <Text style={[styles.summaryStatLabel, { color: theme.secondaryText }]}>Lab (Att/Cond)</Text>
                       <Text style={[styles.summaryStatValue, { color: theme.text }]}>
                         {(activeTab === "overall" ? overallStats : monthlyStats).reduce(
                           (sum, stat) => sum + stat.labPresent,
@@ -1500,13 +1529,13 @@ export default function HomeScreen() {
                           ? overallLabAttendance
                           : activeTab === "monthly" && monthlyStats.length > 0
                             ? Math.round(
-                              (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
-                                Math.max(
-                                  1,
-                                  monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
-                                )) *
-                              100,
-                            )
+                                (monthlyStats.reduce((sum, stat) => sum + stat.labPresent, 0) /
+                                  Math.max(
+                                    1,
+                                    monthlyStats.reduce((sum, stat) => sum + stat.labTotal, 0),
+                                  )) *
+                                  100,
+                              )
                             : 0}
                         %
                       </Text>

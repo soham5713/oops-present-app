@@ -1,18 +1,20 @@
 // List of holidays in YYYY-MM-DD format
 const HOLIDAYS = [
-    "2025-04-01", // Exams
-    "2025-04-02", // Exams
-    "2025-04-03", // Exams
-    "2025-04-04", // Exams
-    "2025-02-19", // Shivaji Maharaj Jayanti
-    "2025-02-26", // Mahashivratri
-    "2025-03-14", // Dhulivandan
-    "2025-03-31", // Ramjan Eid
-    "2025-04-10", // Mahavir Jayanti
-    "2025-04-14", // Dr. Ambedkar Jayanti
-    "2025-04-18", // Good Friday
-    "2025-05-01", // Maharashtra Day
-    "2025-05-12"  // Buddha Pornima
+    "2025-08-15", // Independance Day
+    "2025-08-27", // Ganesh Chaturthi
+    "2025-09-05", // Eid
+    "2025-10-02", // Gandhi Jayanti
+    "2025-10-06", // Exams
+    "2025-10-07", // Exams
+    "2025-10-08", // Exams
+    "2025-10-09", // Exams
+    "2025-10-10", // Exams
+    "2025-10-20", // Diwali
+    "2025-10-21", // Diwali
+    "2025-10-22", // Diwali
+    "2025-10-23", // Diwali
+    "2025-10-24", // Diwali
+    "2025-05-11", // Guru Nanak Jayanti
 ]
 
 export const getHolidays = () => {

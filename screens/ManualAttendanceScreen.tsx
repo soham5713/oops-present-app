@@ -280,7 +280,7 @@ export default function ManualAttendanceScreen() {
   const goToNextDay = () => {
     const currentDate = parseISO(tempDate)
     const nextDay = addDays(currentDate, 1)
-    if (nextDay <= addDays(new Date(), 1)) {
+    if (nextDay <= addDays(new Date(), 30)) {
       setTempDate(format(nextDay, "yyyy-MM-dd"))
     }
   }
@@ -353,6 +353,13 @@ export default function ManualAttendanceScreen() {
           text: theme.warning,
           icon: "alert-circle",
         }
+      case "":
+      case undefined:
+        return {
+          bg: theme.background,
+          text: theme.secondaryText,
+          icon: "help-circle",
+        }
       default:
         return {
           bg: theme.present,
@@ -418,7 +425,6 @@ export default function ManualAttendanceScreen() {
             <Text style={[styles.calendarMonth, { color: theme.text }]}>{format(parseISO(tempDate), "MMMM yyyy")}</Text>
 
             <View style={styles.calendarGrid}>
-
               <View style={styles.dateSelector}>
                 <TouchableOpacity
                   style={[styles.dateNavButton, { backgroundColor: theme.primary }]}
@@ -525,9 +531,7 @@ export default function ManualAttendanceScreen() {
 
             {/* Search and refresh bar */}
             <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
-              <View
-                style={[styles.searchInputContainer]}
-              >
+              <View style={[styles.searchInputContainer]}>
                 <Ionicons name="search" size={18} color={theme.secondaryText} style={styles.searchIcon} />
                 <TextInput
                   style={[styles.searchInput, { color: theme.text }]}
@@ -605,7 +609,11 @@ export default function ManualAttendanceScreen() {
                               style={{ marginRight: 4 }}
                             />
                             <Text style={[styles.statusText, { color: statusColors.text }]}>
-                              {record.status === "cancelled" ? "CANCELLED" : record.status.toUpperCase()}
+                              {record.status === "cancelled"
+                                ? "CANCELLED"
+                                : record.status === "" || !record.status
+                                  ? "NOT CONDUCTED"
+                                  : record.status.toUpperCase()}
                             </Text>
                           </View>
                         </View>

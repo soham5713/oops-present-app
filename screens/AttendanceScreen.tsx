@@ -43,7 +43,9 @@ export default function AttendanceScreen() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"))
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [timetable, setTimetable] = useState<SubjectType[]>([])
-  const [attendance, setAttendance] = useState<{ [key: string]: { status: "present" | "absent"; notes?: string } }>({})
+  const [attendance, setAttendance] = useState<{
+    [key: string]: { status: "present" | "absent" | ""; notes?: string }
+  }>({})
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [markedDates, setMarkedDates] = useState<{ [date: string]: boolean }>({})
@@ -96,10 +98,10 @@ export default function AttendanceScreen() {
     try {
       const subjects = getDaySubjects(userProfile.division, userProfile.batch, dayOfWeek, userProfile.semester)
       const sortedSubjects = (subjects || []).sort((a, b) => {
-        const timeA = convertTimeToMinutes(a.time);
-        const timeB = convertTimeToMinutes(b.time);
-        return timeA - timeB;
-      });
+        const timeA = convertTimeToMinutes(a.time)
+        const timeB = convertTimeToMinutes(b.time)
+        return timeA - timeB
+      })
       return sortedSubjects || []
     } catch (error) {
       console.error("Error loading timetable:", error)
@@ -108,20 +110,20 @@ export default function AttendanceScreen() {
   }, [selectedDate, userProfile?.division, userProfile?.batch, userProfile?.semester, getDayOfWeek])
 
   const convertTimeToMinutes = useCallback((timeString) => {
-    if (!timeString || timeString === "Time TBA") return 0;
+    if (!timeString || timeString === "Time TBA") return 0
 
     // Extract first time from formats like "9:00-10:00" or "9:00"
-    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
-    if (!timeMatch) return 0;
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/)
+    if (!timeMatch) return 0
 
-    let hours = parseInt(timeMatch[1]);
-    const minutes = parseInt(timeMatch[2]);
+    let hours = Number.parseInt(timeMatch[1])
+    const minutes = Number.parseInt(timeMatch[2])
 
     // If hour is less than 9, assume it's PM (like 1:00 = 13:00)
-    if (hours < 9) hours += 12;
+    if (hours < 9) hours += 12
 
-    return hours * 60 + minutes;
-  }, []);
+    return hours * 60 + minutes
+  }, [])
 
   // Load attendance records for selected date
   const loadAttendance = useCallback(async () => {
@@ -131,7 +133,7 @@ export default function AttendanceScreen() {
       const records = await getAttendanceByDate(user.uid, selectedDate)
 
       // Convert array to object for easier access
-      const attendanceMap: { [key: string]: { status: "present" | "absent"; notes?: string } } = {}
+      const attendanceMap: { [key: string]: { status: "present" | "absent" | ""; notes?: string } } = {}
       records.forEach((record) => {
         const key = `${record.subject}_${record.type}`
         attendanceMap[key] = {
@@ -148,7 +150,7 @@ export default function AttendanceScreen() {
     }
   }, [selectedDate, user?.uid])
 
-  // Initialize attendance status for subjects without records
+  // Initialize attendance status for subjects without records (empty by default)
   const initializeAttendance = useCallback((currentTimetable: SubjectType[], currentAttendance: any) => {
     const newAttendance = { ...currentAttendance }
 
@@ -156,7 +158,7 @@ export default function AttendanceScreen() {
       subject.type.forEach((type) => {
         const key = `${subject.subject}_${type}`
         if (!newAttendance[key]) {
-          newAttendance[key] = { status: "absent", notes: "" }
+          newAttendance[key] = { status: "", notes: "" }
         }
       })
     })
@@ -164,17 +166,33 @@ export default function AttendanceScreen() {
     return newAttendance
   }, [])
 
-  // Toggle attendance status
-  const toggleAttendance = useCallback((subject: string, type: string) => {
+  // Toggle attendance status for Present button
+  const togglePresent = useCallback((subject: string, type: string) => {
     setAttendance((prev) => {
       const key = `${subject}_${type}`
-      const currentStatus = prev[key]?.status || "absent"
+      const currentStatus = prev[key]?.status || ""
 
       return {
         ...prev,
         [key]: {
           ...prev[key],
-          status: currentStatus === "present" ? "absent" : "present",
+          status: currentStatus === "present" ? "" : "present",
+        },
+      }
+    })
+  }, [])
+
+  // Toggle attendance status for Absent button
+  const toggleAbsent = useCallback((subject: string, type: string) => {
+    setAttendance((prev) => {
+      const key = `${subject}_${type}`
+      const currentStatus = prev[key]?.status || ""
+
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          status: currentStatus === "absent" ? "" : "absent",
         },
       }
     })
@@ -256,14 +274,17 @@ export default function AttendanceScreen() {
 
       // Convert attendance object to array of records
       Object.entries(attendance).forEach(([key, value]) => {
-        const [subject, type] = key.split("_")
-        records.push({
-          date: selectedDate,
-          subject,
-          type,
-          status: value.status,
-          notes: value.notes || "",
-        })
+        // Only save records that have a status (conducted lectures)
+        if (value.status && value.status !== "") {
+          const [subject, type] = key.split("_")
+          records.push({
+            date: selectedDate,
+            subject,
+            type,
+            status: value.status,
+            notes: value.notes || "",
+          })
+        }
       })
 
       await saveAttendance(user.uid, records)
@@ -425,8 +446,9 @@ export default function AttendanceScreen() {
           <Text style={[styles.appName, { color: theme.text }]}>Mark Attendance</Text>
           <Text style={[styles.appSubtitle, { color: theme.secondaryText }]}>
             {userProfile?.division
-              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
-              }`
+              ? `Division ${userProfile.division} - Batch ${userProfile.batch}${
+                  userProfile?.semester ? ` - Semester ${userProfile.semester}` : ""
+                }`
               : "Select your classes"}
           </Text>
         </View>
@@ -529,7 +551,7 @@ export default function AttendanceScreen() {
                                       : theme.background,
                                 },
                               ]}
-                              onPress={() => toggleAttendance(subject.subject, type)}
+                              onPress={() => togglePresent(subject.subject, type)}
                             >
                               <Ionicons
                                 name={
@@ -569,7 +591,7 @@ export default function AttendanceScreen() {
                                       : theme.background,
                                 },
                               ]}
-                              onPress={() => toggleAttendance(subject.subject, type)}
+                              onPress={() => toggleAbsent(subject.subject, type)}
                             >
                               <Ionicons
                                 name={

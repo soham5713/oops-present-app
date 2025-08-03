@@ -45,6 +45,12 @@ type SubjectCalculation = {
   // Status
   theoryCanReach75: boolean
   labCanReach75: boolean
+  // Conducted lectures (excluding cancelled)
+  theoryConducted: number
+  labConducted: number
+  // Cancelled lectures
+  theoryCancelled: number
+  labCancelled: number
   importedData: {
     theoryTotal: number
     theoryAttended: number
@@ -332,9 +338,11 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
 
           // Count actual attendance from records
           let theoryAttendedFromRecords = 0
-          let theoryTotalFromRecords = 0
+          let theoryConductedFromRecords = 0
+          let theoryCancelledFromRecords = 0
           let labAttendedFromRecords = 0
-          let labTotalFromRecords = 0
+          let labConductedFromRecords = 0
+          let labCancelledFromRecords = 0
 
           Object.entries(records).forEach(([date, dateRecords]) => {
             const dayOfWeek = new Date(date).getDay()
@@ -345,53 +353,77 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
             dateRecords.forEach((record: AttendanceRecord) => {
               if (record.subject === subject) {
                 if (record.type === "theory") {
-                  theoryTotalFromRecords++
-                  if (record.status === "present") {
-                    theoryAttendedFromRecords++
+                  if (record.status === "cancelled") {
+                    theoryCancelledFromRecords++
+                    // Don't count cancelled lectures in conducted count
+                  } else if (record.status && record.status !== "") {
+                    // Only count records with actual status (present/absent) as conducted
+                    theoryConductedFromRecords++
+                    if (record.status === "present") {
+                      theoryAttendedFromRecords++
+                    }
                   }
+                  // Empty status means lecture was not conducted - don't count it anywhere
                 } else if (record.type === "lab") {
-                  labTotalFromRecords++
-                  if (record.status === "present") {
-                    labAttendedFromRecords++
+                  if (record.status === "cancelled") {
+                    labCancelledFromRecords++
+                    // Don't count cancelled lectures in conducted count
+                  } else if (record.status && record.status !== "") {
+                    // Only count records with actual status (present/absent) as conducted
+                    labConductedFromRecords++
+                    if (record.status === "present") {
+                      labAttendedFromRecords++
+                    }
                   }
+                  // Empty status means lecture was not conducted - don't count it anywhere
                 }
               }
             })
           })
 
-          // Combine with imported data
-          const theoryTotalSemester = expectedLectures.theory
+          // Calculate conducted lectures (imported + from records, excluding cancelled)
+          const theoryConducted = theoryConductedFromRecords + importedData.theoryTotal
+          const labConducted = labConductedFromRecords + importedData.labTotal
+
+          // Calculate total attended (imported + from records)
           const theoryAttended = theoryAttendedFromRecords + importedData.theoryAttended
-          const theoryPercentage =
-            theoryTotalSemester > 0 ? Math.round((theoryAttended / theoryTotalSemester) * 100) : 0
-
-          const labTotalSemester = expectedLectures.lab
           const labAttended = labAttendedFromRecords + importedData.labAttended
-          const labPercentage = labTotalSemester > 0 ? Math.round((labAttended / labTotalSemester) * 100) : 0
 
-          // Calculate requirements for 75%
+          // Calculate current percentage based on conducted lectures (excluding cancelled)
+          const theoryPercentage = theoryConducted > 0 ? Math.round((theoryAttended / theoryConducted) * 100) : 0
+          const labPercentage = labConducted > 0 ? Math.round((labAttended / labConducted) * 100) : 0
+
+          // Total semester lectures (expected - cancelled)
+          const theoryTotalSemester = expectedLectures.theory - theoryCancelledFromRecords
+          const labTotalSemester = expectedLectures.lab - labCancelledFromRecords
+
+          // Calculate requirements for 75% of total semester (excluding cancelled)
           const theoryRequired75 = Math.ceil(theoryTotalSemester * 0.75)
           const labRequired75 = Math.ceil(labTotalSemester * 0.75)
 
-          // Calculate how many more needed to reach 75%
+          // Calculate how many more needed to reach 75% of total semester
           const theoryNeedToAttend = Math.max(0, theoryRequired75 - theoryAttended)
           const labNeedToAttend = Math.max(0, labRequired75 - labAttended)
 
-          // Calculate how many can be skipped while maintaining 75%
-          const theoryCanSkip = Math.max(0, theoryAttended - theoryRequired75)
-          const labCanSkip = Math.max(0, labAttended - labRequired75)
+          // Calculate actual remaining lectures (total remaining - what's already conducted)
+          const theoryActualRemaining = Math.max(0, theoryTotalSemester - theoryConducted)
+          const labActualRemaining = Math.max(0, labTotalSemester - labConducted)
+
+          // Calculate how many can be skipped from remaining lectures while maintaining 75%
+          const theoryCanSkip = Math.max(0, theoryActualRemaining - theoryNeedToAttend)
+          const labCanSkip = Math.max(0, labActualRemaining - labNeedToAttend)
 
           // Check if 75% is achievable
-          const theoryCanReach75 = theoryAttended + remainingLectures.theory >= theoryRequired75
-          const labCanReach75 = labAttended + remainingLectures.lab >= labRequired75
+          const theoryCanReach75 = theoryAttended + theoryActualRemaining >= theoryRequired75
+          const labCanReach75 = labAttended + labActualRemaining >= labRequired75
 
           // Calculate maximum possible percentage
           const theoryMaxPossible =
             theoryTotalSemester > 0
-              ? Math.round(((theoryAttended + remainingLectures.theory) / theoryTotalSemester) * 100)
+              ? Math.round(((theoryAttended + theoryActualRemaining) / theoryTotalSemester) * 100)
               : 0
           const labMaxPossible =
-            labTotalSemester > 0 ? Math.round(((labAttended + remainingLectures.lab) / labTotalSemester) * 100) : 0
+            labTotalSemester > 0 ? Math.round(((labAttended + labActualRemaining) / labTotalSemester) * 100) : 0
 
           calculations[subject] = {
             subject,
@@ -407,11 +439,17 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
             labCanSkip,
             labNeedToAttend,
             labMaxPossible,
-            theoryRemaining: remainingLectures.theory,
-            labRemaining: remainingLectures.lab,
+            theoryRemaining: theoryActualRemaining,
+            labRemaining: labActualRemaining,
             theoryCanReach75,
             labCanReach75,
             importedData,
+            // Add conducted lectures for display (excluding cancelled)
+            theoryConducted,
+            labConducted,
+            // Add cancelled lectures for reference
+            theoryCancelled: theoryCancelledFromRecords,
+            labCancelled: labCancelledFromRecords,
           }
         }
 
@@ -465,12 +503,12 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
 
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Semester</Text>
-              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryTotalSemester}</Text>
-            </View>
-            <View style={styles.statItem}>
               <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attended</Text>
               <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryAttended}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Conducted</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryConducted}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Remaining</Text>
@@ -481,6 +519,15 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
               <Text style={[styles.statValue, { color: theme.text }]}>{calc.theoryCanSkip}</Text>
             </View>
           </View>
+
+          {calc.theoryCancelled > 0 && (
+            <View style={[styles.cancelledInfo, { backgroundColor: theme.warning + "20" }]}>
+              <Ionicons name="alert-circle" size={16} color={theme.warning} />
+              <Text style={[styles.cancelledText, { color: theme.warning }]}>
+                {calc.theoryCancelled} lecture{calc.theoryCancelled > 1 ? "s" : ""} cancelled
+              </Text>
+            </View>
+          )}
 
           <View
             style={[
@@ -516,12 +563,12 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
 
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Total Semester</Text>
-              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labTotalSemester}</Text>
-            </View>
-            <View style={styles.statItem}>
               <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Attended</Text>
               <Text style={[styles.statValue, { color: theme.text }]}>{calc.labAttended}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Conducted</Text>
+              <Text style={[styles.statValue, { color: theme.text }]}>{calc.labConducted}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statLabel, { color: theme.secondaryText }]}>Remaining</Text>
@@ -532,6 +579,15 @@ const AttendanceCalculator: React.FC<AttendanceCalculatorProps> = ({
               <Text style={[styles.statValue, { color: theme.text }]}>{calc.labCanSkip}</Text>
             </View>
           </View>
+
+          {calc.labCancelled > 0 && (
+            <View style={[styles.cancelledInfo, { backgroundColor: theme.warning + "20" }]}>
+              <Ionicons name="alert-circle" size={16} color={theme.warning} />
+              <Text style={[styles.cancelledText, { color: theme.warning }]}>
+                {calc.labCancelled} session{calc.labCancelled > 1 ? "s" : ""} cancelled
+              </Text>
+            </View>
+          )}
 
           <View
             style={[
@@ -691,7 +747,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl,
     borderRadius: spacing.borderRadius.large,
-    // ...createShadow(1),
   },
   emptyText: {
     fontSize: 16,
@@ -766,6 +821,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  cancelledInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.medium,
+    marginBottom: spacing.sm,
+  },
+  cancelledText: {
+    marginLeft: spacing.xs,
+    fontSize: 12,
+    fontWeight: "500",
   },
   requirementCard: {
     flexDirection: "row",
