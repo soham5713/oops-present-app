@@ -93,6 +93,54 @@ export default function SettingsScreen() {
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false)
   const [datePickerMode, setDatePickerMode] = useState<"start" | "end">("start")
 
+  const getSubjectsForUserSemester = () => {
+    const userSemester = userProfile?.semester || selectedSemester;
+    const userDivision = userProfile?.division || selectedDivision;
+
+    if (!userSemester || !userDivision) {
+      // If no semester/division selected, return empty array or all subjects
+      return AllSubjects;
+    }
+
+    try {
+      // Get the timetable for the user's semester
+      const semesterData = getSemesterTimetable(userSemester);
+
+      if (!semesterData || !semesterData[userDivision]) {
+        console.log(`No data found for semester ${userSemester}, division ${userDivision}`);
+        return AllSubjects; // Fallback to all subjects
+      }
+
+      // Get all unique subjects from the division's timetable
+      const subjects = new Set();
+
+      // Iterate through all batches in the division
+      Object.values(semesterData[userDivision]).forEach(batch => {
+        if (batch && typeof batch === 'object') {
+          // Iterate through all days in the batch
+          Object.values(batch).forEach(day => {
+            if (Array.isArray(day)) {
+              // Iterate through all time slots in the day
+              day.forEach(slot => {
+                if (slot && slot.subject && slot.subject.trim() !== '') {
+                  subjects.add(slot.subject.trim());
+                }
+              });
+            }
+          });
+        }
+      });
+
+      const subjectsArray = Array.from(subjects).sort();
+      console.log(`Found subjects for sem ${userSemester}, div ${userDivision}:`, subjectsArray);
+
+      return subjectsArray.length > 0 ? subjectsArray : AllSubjects;
+    } catch (error) {
+      console.error('Error getting subjects for user semester:', error);
+      return AllSubjects; // Fallback to all subjects
+    }
+  };
+
   // Load user data and semester settings
   const loadUserData = async () => {
     if (user) {
@@ -389,6 +437,42 @@ export default function SettingsScreen() {
         }
       })
 
+      // Query manual attendance records
+      const manualQuery = query(collection(db, "manualAttendance"), where("userId", "==", user.uid))
+      const manualSnapshot = await getDocs(manualQuery)
+
+      manualSnapshot.forEach((doc) => {
+        const data = doc.data()
+        if (data.records && Array.isArray(data.records)) {
+          attendanceData.push({ date: data.date, records: data.records })
+
+          data.records.forEach((record) => {
+            if (!subjectStats[record.subject]) {
+              subjectStats[record.subject] = {
+                subject: record.subject,
+                theoryTotal: 0,
+                theoryPresent: 0,
+                labTotal: 0,
+                labPresent: 0,
+              }
+            }
+
+            if (record.type === "theory") {
+              subjectStats[record.subject].theoryTotal++
+              if (record.status === "present") {
+                subjectStats[record.subject].theoryPresent++
+              }
+            } else if (record.type === "lab") {
+              subjectStats[record.subject].labTotal++
+              if (record.status === "present") {
+                subjectStats[record.subject].labPresent++
+              }
+            }
+          })
+        }
+      })
+
+      // Add imported attendance data
       const importedDataQuery = query(collection(db, "importedAttendance"), where("userId", "==", user.uid))
       const importedSnapshot = await getDocs(importedDataQuery)
 
@@ -412,117 +496,536 @@ export default function SettingsScreen() {
         subjectStats[subject].labPresent += data.labAttended || 0
       })
 
+      // Calculate percentages for all subjects
       Object.values(subjectStats).forEach((stat: any) => {
         stat.theoryPercentage = stat.theoryTotal > 0 ? Math.round((stat.theoryPresent / stat.theoryTotal) * 100) : 0
         stat.labPercentage = stat.labTotal > 0 ? Math.round((stat.labPresent / stat.labTotal) * 100) : 0
       })
 
+      // Sort attendance data by date (newest first)
       attendanceData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
       const getColorClass = (percentage: number) => {
-        if (percentage >= 75) return "good"
-        if (percentage >= 60) return "warning"
+        if (percentage >= 75) return "excellent"
+        if (percentage >= 60) return "good"
+        if (percentage >= 50) return "warning"
         return "danger"
       }
 
+      const getStatusClass = (status: string) => {
+        if (status === "present") return "present"
+        if (status === "cancelled") return "cancelled"
+        return "absent"
+      }
+
+      const totalSubjects = Object.keys(subjectStats).length
+      const overallStats = Object.values(subjectStats).reduce((acc: any, stat: any) => {
+        acc.totalClasses += stat.theoryTotal + stat.labTotal
+        acc.attendedClasses += stat.theoryPresent + stat.labPresent
+        return acc
+      }, { totalClasses: 0, attendedClasses: 0 })
+
+      const overallPercentage = overallStats.totalClasses > 0
+        ? Math.round((overallStats.attendedClasses / overallStats.totalClasses) * 100)
+        : 0
+
       const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Oops Present - Attendance Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { color: #4f46e5; margin-bottom: 5px; }
-            .header p { color: #666; margin-top: 0; }
-            .section { margin-bottom: 30px; }
-            .section-title { color: #4f46e5; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            .good { color: #16a34a; }
-            .warning { color: #f59e0b; }
-            .danger { color: #dc2626; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Attendance Report - Oops Present</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+          }
+          
+          .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+          }
+          
+          .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            animation: float 20s ease-in-out infinite;
+          }
+          
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+          }
+          
+          .header-content {
+            position: relative;
+            z-index: 1;
+          }
+          
+          .header h1 { 
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+          
+          .header .subtitle { 
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+            margin-bottom: 8px;
+          }
+          
+          .header .user-info {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin: 20px auto 0;
+            max-width: 600px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+          }
+          
+          .content {
+            padding: 40px;
+          }
+          
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+          }
+          
+          .stat-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            overflow: hidden;
+          }
+          
+          .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+          }
+          
+          .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4f46e5;
+            line-height: 1;
+            margin-bottom: 8px;
+          }
+          
+          .stat-card .label {
+            color: #64748b;
+            font-weight: 500;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .section {
+            margin-bottom: 50px;
+          }
+          
+          .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #e2e8f0;
+            position: relative;
+          }
+          
+          .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+          }
+          
+          .table-container {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          
+          th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            color: #374151;
+            font-weight: 600;
+            padding: 20px 16px;
+            text-align: left;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          
+          td {
+            padding: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 0.95rem;
+          }
+          
+          tr:hover {
+            background-color: #f8fafc;
+          }
+          
+          tr:last-child td {
+            border-bottom: none;
+          }
+          
+          .excellent {
+            color: #059669;
+            font-weight: 600;
+            background: #ecfdf5;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+          }
+          
+          .good {
+            color: #0891b2;
+            font-weight: 600;
+            background: #ecfeff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+          }
+          
+          .warning {
+            color: #d97706;
+            font-weight: 600;
+            background: #fffbeb;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+          }
+          
+          .danger {
+            color: #dc2626;
+            font-weight: 600;
+            background: #fef2f2;
+            padding: 6px 12px;
+            border-radius: 20px;
+            display: inline-block;
+          }
+          
+          .present {
+            color: #059669;
+            font-weight: 600;
+            background: #ecfdf5;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .absent {
+            color: #dc2626;
+            font-weight: 600;
+            background: #fef2f2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .cancelled {
+            color: #d97706;
+            font-weight: 600;
+            background: #fffbeb;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .manual-record {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+          }
+          
+          .record-type {
+            background: #4f46e5;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 8px;
+          }
+          
+          .manual-tag {
+            background: #f59e0b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 6px;
+          }
+          
+          .notes-cell {
+            max-width: 200px;
+            word-wrap: break-word;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.4;
+          }
+          
+          .footer {
+            background: #f8fafc;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+          }
+          
+          .footer .app-name {
+            font-weight: 600;
+            color: #4f46e5;
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+          }
+          
+          .footer .copyright {
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+          }
+          
+          .footer .note {
+            font-size: 0.8rem;
+            font-style: italic;
+            color: #94a3b8;
+          }
+          
+          .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+            font-style: italic;
+          }
+          
+          .no-data .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+          }
+          
+          @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; }
+            .header::before { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
           <div class="header">
-            <h1>Oops Present - Attendance Report</h1>
-            <p>Generated on ${new Date().toLocaleDateString()} for ${user.displayName || user.email}</p>
-            <p>Division: ${userProfile?.division || "N/A"} | Batch: ${userProfile?.batch || "N/A"}</p>
+            <div class="header-content">
+              <h1>📚 Attendance Report</h1>
+              <p class="subtitle">Comprehensive Academic Performance Analysis</p>
+              <div class="user-info">
+                <p><strong>${user.displayName || user.email}</strong></p>
+                <p>Division: ${userProfile?.division || "N/A"} • Batch: ${userProfile?.batch || "N/A"} • Semester: ${userProfile?.semester || "N/A"}</p>
+                <p>Generated on ${new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}</p>
+              </div>
+            </div>
           </div>
           
-          <div class="section">
-            <h2 class="section-title">Attendance Summary</h2>
-            <table>
-              <tr>
-                <th>Subject</th>
-                <th>Theory Attendance</th>
-                <th>Lab Attendance</th>
-                <th>Overall</th>
-              </tr>
-              ${Object.values(subjectStats)
+          <div class="content">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="number">${totalSubjects}</div>
+                <div class="label">Total Subjects</div>
+              </div>
+              <div class="stat-card">
+                <div class="number">${overallStats.totalClasses}</div>
+                <div class="label">Total Classes</div>
+              </div>
+              <div class="stat-card">
+                <div class="number">${overallStats.attendedClasses}</div>
+                <div class="label">Classes Attended</div>
+              </div>
+              <div class="stat-card">
+                <div class="number ${getColorClass(overallPercentage).replace(' ', '')}">${overallPercentage}%</div>
+                <div class="label">Overall Attendance</div>
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2 class="section-title">📊 Subject-wise Attendance Summary</h2>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Theory Classes</th>
+                      <th>Lab Sessions</th>
+                      <th>Overall Performance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${Object.values(subjectStats)
           .map(
             (stat: any) => `
-                <tr>
-                  <td>${stat.subject}</td>
-                  <td class="${getColorClass(stat.theoryPercentage)}">
-                    ${stat.theoryPresent}/${stat.theoryTotal} (${stat.theoryPercentage}%)
-                  </td>
-                  <td class="${getColorClass(stat.labPercentage)}">
-                    ${stat.labPresent}/${stat.labTotal} (${stat.labPercentage}%)
-                  </td>
-                  <td class="${getColorClass((stat.theoryPercentage + stat.labPercentage) / 2)}">
-                    ${Math.round((stat.theoryPercentage + stat.labPercentage) / 2)}%
-                  </td>
-                </tr>
-              `,
+                          <tr>
+                            <td><strong>${stat.subject}</strong></td>
+                            <td>
+                              <span class="${getColorClass(stat.theoryPercentage)}">
+                                ${stat.theoryPresent}/${stat.theoryTotal} (${stat.theoryPercentage}%)
+                              </span>
+                            </td>
+                            <td>
+                              <span class="${getColorClass(stat.labPercentage)}">
+                                ${stat.labPresent}/${stat.labTotal} (${stat.labPercentage}%)
+                              </span>
+                            </td>
+                            <td>
+                              <span class="${getColorClass((stat.theoryPercentage + stat.labPercentage) / 2)}">
+                                ${Math.round((stat.theoryPercentage + stat.labPercentage) / 2)}%
+                              </span>
+                            </td>
+                          </tr>
+                        `,
           )
           .join("")}
-            </table>
-          </div>
-          
-          <div class="section">
-            <h2 class="section-title">Recent Attendance Records</h2>
-            <table>
-              <tr>
-                <th>Date</th>
-                <th>Subject</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Notes</th>
-              </tr>
-              ${attendanceData
-          .slice(0, 20)
-          .flatMap((day) =>
-            day.records.map(
-              (record) => `
-                  <tr>
-                    <td>${new Date(day.date).toLocaleDateString()}</td>
-                    <td>${record.subject}</td>
-                    <td>${record.type}</td>
-                    <td class="${record.status === "present" ? "good" : "danger"}">
-                      ${record.status.toUpperCase()}
-                    </td>
-                    <td>${record.notes || ""}</td>
-                  </tr>
-                `,
-            ),
-          )
-          .join("")}
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <div class="section">
+              <h2 class="section-title">📅 Recent Attendance Records</h2>
+              <div class="table-container">
+                ${attendanceData.length > 0 ? `
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Subject</th>
+                        <th>Session Type</th>
+                        <th>Status</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${attendanceData
+            .slice(0, 30)
+            .flatMap((day) =>
+              day.records.map(
+                (record) => `
+                              <tr ${record.isManual ? 'class="manual-record"' : ""}>
+                                <td>${new Date(day.date).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}</td>
+                                <td>
+                                  <strong>${record.subject}</strong>
+                                  ${record.isManual ? '<span class="manual-tag">MANUAL</span>' : ""}
+                                </td>
+                                <td>
+                                  ${record.type.toUpperCase()}
+                                  <span class="record-type">${record.type}</span>
+                                </td>
+                                <td>
+                                  <span class="${getStatusClass(record.status)}">
+                                    ${record.status ? record.status.toUpperCase() : "NOT CONDUCTED"}
+                                  </span>
+                                </td>
+                                <td class="notes-cell">
+                                  ${record.notes ? record.notes.replace("[MANUAL]", "").trim() : "-"}
+                                </td>
+                              </tr>
+                            `,
+              ),
+            )
+            .join("")}
+                    </tbody>
+                  </table>
+                ` : `
+                  <div class="no-data">
+                    <div class="icon">📝</div>
+                    <p>No attendance records found.</p>
+                    <p>Start tracking your attendance to see detailed reports here.</p>
+                  </div>
+                `}
+              </div>
+            </div>
           </div>
           
           <div class="footer">
-            <p>Generated by Oops Present</p>
-            <p>© ${new Date().getFullYear()} All Rights Reserved</p>
+            <div class="app-name">📱 Oops Present</div>
+            <div class="copyright">© ${new Date().getFullYear()} All Rights Reserved</div>
+            <div class="note">Manual records are highlighted with yellow background • Generated automatically</div>
           </div>
-        </body>
-        </html>
-      `
+        </div>
+      </body>
+      </html>
+    `
 
       return html
     } catch (error) {
@@ -1039,7 +1542,26 @@ export default function SettingsScreen() {
               </View>
 
               <ScrollView style={styles.modalList}>
-                {AllSubjects.map((subject) => (
+                {/* Show academic info if available */}
+                {(userProfile?.semester || selectedSemester) && (userProfile?.division || selectedDivision) && (
+                  <View style={[styles.academicInfoBanner, { backgroundColor: theme.primary + "20", borderColor: theme.primary + "30" }]}>
+                    <Text style={[styles.academicInfoText, { color: theme.primary }]}>
+                      Showing subjects for Semester {userProfile?.semester || selectedSemester}, Division {userProfile?.division || selectedDivision}
+                    </Text>
+                  </View>
+                )}
+
+                {/* No academic info warning */}
+                {!(userProfile?.semester || selectedSemester) || !(userProfile?.division || selectedDivision) && (
+                  <View style={[styles.warningBanner, { backgroundColor: theme.error + "20", borderColor: theme.error + "30" }]}>
+                    <Ionicons name="warning-outline" size={16} color={theme.error} />
+                    <Text style={[styles.warningText, { color: theme.error }]}>
+                      Please set your semester and division in preferences for accurate subject list
+                    </Text>
+                  </View>
+                )}
+
+                {getSubjectsForUserSemester().map((subject) => (
                   <TouchableOpacity
                     key={subject}
                     style={[
@@ -1048,14 +1570,27 @@ export default function SettingsScreen() {
                       selectedSubject === subject && { backgroundColor: theme.primary + "20" },
                     ]}
                     onPress={() => {
-                      setSelectedSubject(subject)
-                      setSubjectModalVisible(false)
+                      setSelectedSubject(subject);
+                      setSubjectModalVisible(false);
                     }}
                   >
                     <Text style={[styles.modalItemText, { color: theme.text }]}>{subject}</Text>
                     {selectedSubject === subject && <Ionicons name="checkmark" size={20} color={theme.primary} />}
                   </TouchableOpacity>
                 ))}
+
+                {/* Show message if no subjects found */}
+                {getSubjectsForUserSemester().length === 0 && (
+                  <View style={styles.noSubjectsContainer}>
+                    <Ionicons name="book-outline" size={48} color={theme.secondaryText} style={{ opacity: 0.5 }} />
+                    <Text style={[styles.noSubjectsText, { color: theme.secondaryText }]}>
+                      No subjects found for your current semester and division.
+                    </Text>
+                    <Text style={[styles.noSubjectsSubtext, { color: theme.secondaryText }]}>
+                      Please check your academic preferences or contact support.
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1573,4 +2108,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  academicInfoBanner: {
+    margin: spacing.md,
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.medium,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  academicInfoText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  warningBanner: {
+    margin: spacing.md,
+    padding: spacing.sm,
+    borderRadius: spacing.borderRadius.medium,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  warningText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: spacing.xs,
+    flex: 1,
+  },
+  noSubjectsContainer: {
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  noSubjectsText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  noSubjectsSubtext: {
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.7,
+  }
 })
