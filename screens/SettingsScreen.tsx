@@ -39,6 +39,7 @@ import DatePicker from "../components/DatePicker"
 import MonthPicker from "../components/MonthPicker"
 import { LinearGradient } from "expo-linear-gradient"
 import { getSemesterSettings, saveSemesterSettings } from "../firebase/semesterService"
+import { getHolidays, isHoliday } from "../utils/holidays"
 
 const Semesters = ["1", "2", "3", "4", "5", "6", "7", "8"]
 
@@ -409,33 +410,37 @@ export default function SettingsScreen() {
       querySnapshot.forEach((doc) => {
         const data = doc.data()
         if (data.records && Array.isArray(data.records)) {
-          attendanceData.push({ date: data.date, records: data.records })
+          // Only process if the date is not a holiday
+          if (!isHoliday(data.date)) {
+            attendanceData.push({ date: data.date, records: data.records })
 
-          data.records.forEach((record) => {
-            if (!subjectStats[record.subject]) {
-              subjectStats[record.subject] = {
-                subject: record.subject,
-                theoryTotal: 0,
-                theoryPresent: 0,
-                labTotal: 0,
-                labPresent: 0,
+            data.records.forEach((record) => {
+              if (!subjectStats[record.subject]) {
+                subjectStats[record.subject] = {
+                  subject: record.subject,
+                  theoryTotal: 0,
+                  theoryPresent: 0,
+                  labTotal: 0,
+                  labPresent: 0,
+                }
               }
-            }
 
-            if (record.type === "theory") {
-              subjectStats[record.subject].theoryTotal++
-              if (record.status === "present") {
-                subjectStats[record.subject].theoryPresent++
+              if (record.type === "theory") {
+                subjectStats[record.subject].theoryTotal++
+                if (record.status === "present") {
+                  subjectStats[record.subject].theoryPresent++
+                }
+              } else if (record.type === "lab") {
+                subjectStats[record.subject].labTotal++
+                if (record.status === "present") {
+                  subjectStats[record.subject].labPresent++
+                }
               }
-            } else if (record.type === "lab") {
-              subjectStats[record.subject].labTotal++
-              if (record.status === "present") {
-                subjectStats[record.subject].labPresent++
-              }
-            }
-          })
+            })
+          }
         }
       })
+
 
       // Query manual attendance records
       const manualQuery = query(collection(db, "manualAttendance"), where("userId", "==", user.uid))
@@ -444,31 +449,34 @@ export default function SettingsScreen() {
       manualSnapshot.forEach((doc) => {
         const data = doc.data()
         if (data.records && Array.isArray(data.records)) {
-          attendanceData.push({ date: data.date, records: data.records })
+          // Only process if the date is not a holiday
+          if (!isHoliday(data.date)) {
+            attendanceData.push({ date: data.date, records: data.records })
 
-          data.records.forEach((record) => {
-            if (!subjectStats[record.subject]) {
-              subjectStats[record.subject] = {
-                subject: record.subject,
-                theoryTotal: 0,
-                theoryPresent: 0,
-                labTotal: 0,
-                labPresent: 0,
+            data.records.forEach((record) => {
+              if (!subjectStats[record.subject]) {
+                subjectStats[record.subject] = {
+                  subject: record.subject,
+                  theoryTotal: 0,
+                  theoryPresent: 0,
+                  labTotal: 0,
+                  labPresent: 0,
+                }
               }
-            }
 
-            if (record.type === "theory") {
-              subjectStats[record.subject].theoryTotal++
-              if (record.status === "present") {
-                subjectStats[record.subject].theoryPresent++
+              if (record.type === "theory") {
+                subjectStats[record.subject].theoryTotal++
+                if (record.status === "present") {
+                  subjectStats[record.subject].theoryPresent++
+                }
+              } else if (record.type === "lab") {
+                subjectStats[record.subject].labTotal++
+                if (record.status === "present") {
+                  subjectStats[record.subject].labPresent++
+                }
               }
-            } else if (record.type === "lab") {
-              subjectStats[record.subject].labTotal++
-              if (record.status === "present") {
-                subjectStats[record.subject].labPresent++
-              }
-            }
-          })
+            })
+          }
         }
       })
 
@@ -502,6 +510,7 @@ export default function SettingsScreen() {
         stat.labPercentage = stat.labTotal > 0 ? Math.round((stat.labPresent / stat.labTotal) * 100) : 0
       })
 
+      // Filter out holidays and sort attendance data by date (newest first)
       // Sort attendance data by date (newest first)
       attendanceData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -1269,8 +1278,8 @@ export default function SettingsScreen() {
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {renderSettingRow(
                   "document-text-outline",
-                  "Export Report",
-                  "Generate PDF report",
+                  isExporting ? "Generating Report..." : "Export Report",
+                  isExporting ? "Please wait..." : "Generate PDF report",
                   exportData,
                   false,
                   false,

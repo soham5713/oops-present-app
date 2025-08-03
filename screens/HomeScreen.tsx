@@ -1531,7 +1531,7 @@ export default function HomeScreen() {
                                 if (numValue === 50) return "50";
                                 if (numValue === 75) return "75";
                                 if (numValue === 100) return "100";
-                                return "";
+                                return "0";
                               },
                             }}
                             segments={4}
@@ -1573,7 +1573,7 @@ export default function HomeScreen() {
                                 if (numValue === 50) return "50";
                                 if (numValue === 75) return "75";
                                 if (numValue === 100) return "100";
-                                return "";
+                                return "0";
                               },
                             }}
                             segments={4}
